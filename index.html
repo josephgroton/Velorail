@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spoke &amp; Rail — bike+transit router</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{
+    --ink:#14181d; --panel:#181d24; --panel2:#1f2630; --line:#2c3540;
+    --paper:#eef0f2; --text:#e8ebee; --dim:#9aa5b1; --faint:#5b6671;
+    --mfl:#1c66b8; --bsl:#f47b20; --patco:#d8343c; --chw:#4c7c3f;
+    --bike:#12a37a; --walk:#8a94a0; --good:#3ddc97; --bad:#ff7a6e;
+    --display:'Arial Narrow','Helvetica Neue Condensed','Roboto Condensed','Helvetica Neue',Arial,sans-serif;
+    --body:'Helvetica Neue',Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--body);background:var(--ink);color:var(--text);display:flex;flex-direction:column}
+  #app{display:flex;flex:1;min-height:0}
+  /* ---------- sidebar ---------- */
+  #side{width:390px;min-width:330px;background:var(--panel);display:flex;flex-direction:column;border-right:1px solid var(--line);overflow:hidden}
+  header{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+  header h1{font-family:var(--display);font-size:21px;letter-spacing:.14em;text-transform:uppercase;font-weight:700}
+  header h1 .amp{color:var(--bike)}
+  header p{font-size:12px;color:var(--dim);margin-top:4px;line-height:1.45}
+  #controls{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  select,button{font-family:var(--body);font-size:13px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:7px 10px;cursor:pointer}
+  select{flex:1;min-width:0}
+  button:hover{border-color:var(--faint)}
+  button:focus-visible,select:focus-visible{outline:2px solid var(--bike);outline-offset:1px}
+  .pt{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim)}
+  .prof{display:flex;flex-direction:column;gap:7px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+  .ptitle{font-family:var(--display);text-transform:uppercase;letter-spacing:.11em;font-size:11px;color:var(--dim);font-weight:700}
+  .cost{font-family:var(--mono);font-size:12px;color:var(--good);background:rgba(61,220,151,.08);border:1px solid rgba(61,220,151,.25);border-radius:5px;padding:1px 7px}
+  .pt input{accent-color:var(--bsl);width:15px;height:15px;cursor:pointer}
+  .endpoints{display:flex;gap:8px}
+  .ep{flex:1;display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:12px;color:var(--dim);min-width:0}
+  .ep b{font-family:var(--mono);font-size:11px;color:var(--text);background:var(--ink);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+  .ep span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hint{font-size:11px;color:var(--faint);line-height:1.45}
+  /* ---------- results ---------- */
+  #results{flex:1;overflow-y:auto;padding:12px 18px 20px;display:flex;flex-direction:column;gap:10px}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:11px 13px;cursor:pointer;transition:border-color .12s}
+  .card:hover{border-color:var(--faint)}
+  .card.sel{border-color:var(--bike)}
+  .card .top{display:flex;align-items:baseline;gap:8px}
+  .card .name{font-family:var(--display);text-transform:uppercase;letter-spacing:.09em;font-size:12.5px;font-weight:700;flex:1}
+  .card .time{font-family:var(--mono);font-size:19px;font-weight:700}
+  .card .delta{font-family:var(--mono);font-size:11px}
+  .delta.faster{color:var(--good)} .delta.slower{color:var(--bad)} .delta.base{color:var(--faint)}
+  .card .nf{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.5}
+  /* strip map */
+  .strip{margin-top:9px;display:flex;flex-direction:column}
+  .leg{display:flex;gap:10px;min-height:30px}
+  .rail{width:14px;display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+  .rail .dot{width:9px;height:9px;border-radius:50%;background:var(--paper);border:2px solid var(--faint);flex-shrink:0;z-index:1}
+  .rail .seg{width:4px;flex:1;border-radius:2px;margin:-1px 0}
+  .seg.dashed{background:repeating-linear-gradient(to bottom,transparent 0 3px,var(--c) 3px 8px)}
+  .seg.solid{background:var(--c)}
+  .leg .body{flex:1;padding:0 0 10px;font-size:12px;line-height:1.45;color:var(--dim)}
+  .leg .body b{color:var(--text);font-weight:600}
+  .leg .min{font-family:var(--mono);font-size:11px;color:var(--text);white-space:nowrap;padding-top:0}
+  .endrow{display:flex;gap:10px;align-items:center}
+  .endrow .body{font-size:12px;color:var(--text);font-weight:600;padding-bottom:2px}
+  .note{font-size:11px;color:var(--faint);margin-top:7px;line-height:1.5}
+  footer{padding:10px 18px;border-top:1px solid var(--line);font-size:10.5px;color:var(--faint);line-height:1.5}
+  /* ---------- map ---------- */
+  #map{flex:1;min-width:0;background:var(--paper)}
+  .leaflet-container{font-family:var(--body)}
+  .stn-ic{border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+  .dock-ic{border-radius:3px;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+  .ab-ic{display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--ink);color:#fff;font:700 12px/1 var(--mono);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+  @media (max-width:760px){
+    #app{flex-direction:column}
+    #side{width:100%;min-width:0;max-height:55%;order:2}
+    #map{order:1;min-height:45%}
+  }
+  @media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="side">
+    <header>
+      <h1>Spoke <span class="amp">&amp;</span> Rail</h1>
+      <p>Multimodal router that treats the bike as a first-class transit leg. Compares four ways to make the same trip across SEPTA + PATCO.</p>
+    </header>
+    <div id="controls">
+      <div class="row">
+        <select id="preset" aria-label="Example trips">
+          <option value="">Example trips…</option>
+          <option value="mtairy-collingswood">Mt. Airy → Collingswood, NJ</option>
+          <option value="pbreeze-haddonfield">Point Breeze → Haddonfield, NJ</option>
+          <option value="fishtown-ucity">Fishtown → University City</option>
+          <option value="bella-fernrock">Bella Vista → Fern Rock</option>
+          <option value="grad-frankford">Graduate Hospital → Frankford</option>
+        </select>
+        <button id="clear">Clear</button>
+      </div>
+      <div class="endpoints">
+        <div class="ep"><b>A</b><span id="aLabel">Tap map to set start</span></div>
+        <div class="ep"><b>B</b><span id="bLabel">…then destination</span></div>
+      </div>
+      <div class="prof">
+        <div class="ptitle">Rider profile</div>
+        <label class="pt"><input type="checkbox" id="hasBike" checked> I have a personal bike</label>
+        <label class="pt" style="margin-left:22px"><input type="checkbox" id="carryOK" checked> …and I'm willing to take it aboard transit</label>
+        <label class="pt">Indego bikeshare:&nbsp;
+          <select id="indegoPlan" style="flex:1">
+            <option value="payg">pay per ride — $4.50 / 30 min</option>
+            <option value="member">member — Indego30/365, rides included</option>
+            <option value="none">don't use Indego</option>
+          </select>
+        </label>
+      </div>
+      <label class="pt"><input type="checkbox" id="peak"> Peak hours (weekday 6–9a / 3–6p) — SEPTA bars bikes on board; PATCO still allows them</label>
+      <div class="hint">Clicks alternate A and B. Routing runs over a representative network: Market–Frankford Line, Broad Street Line, Chestnut Hill West Regional Rail, full PATCO line, and sample Indego docks.</div>
+    </div>
+    <div id="results"><div class="hint" style="padding-top:4px">Pick an example trip or set two points on the map.</div></div>
+    <footer>Prototype. Schedules are modeled as average headways, not live GTFS; station coordinates approximate; bike/walk legs use straight-line distance × 1.3 street factor (bike 11&nbsp;mph, walk 3.1&nbsp;mph).</footer>
+  </div>
+  <div id="map" role="application" aria-label="Route map"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* ================= NETWORK DATA ================= */
+const LINES = {
+  MFL:  {name:'Market–Frankford Line', color:'#1c66b8', headway:6,  bikes:'offpeak'},
+  BSL:  {name:'Broad Street Line',     color:'#f47b20', headway:8,  bikes:'offpeak'},
+  CHW:  {name:'Chestnut Hill West Regional Rail', color:'#4c7c3f', headway:35, bikes:'offpeak'},
+  PATCO:{name:'PATCO Speedline',       color:'#d8343c', headway:12, bikes:'always'}
+};
+/* st(id,name,lat,lng) — order within each line array is track order */
+const STATIONS = {};
+function st(id,name,lat,lng){STATIONS[id]={id,name,lat,lng,lines:[]};return id;}
+const SEQ = {
+  MFL:[
+    st('69th','69th St TC',39.9626,-75.2576), st('52nd','52nd St',39.9572,-75.2261),
+    st('46th','46th St',39.9545,-75.2128),   st('40th','40th St',39.9559,-75.2016),
+    st('34th','34th St',39.9558,-75.1907),   st('30mfl','30th St (El)',39.9557,-75.1830),
+    st('15mfl','15th St',39.9523,-75.1655),  st('13mfl','13th St',39.9520,-75.1614),
+    st('11mfl','11th St',39.9518,-75.1577),  st('8mfl','8th & Market',39.9513,-75.1539),
+    st('5th','5th St/Independence',39.9507,-75.1500), st('2nd','2nd St',39.9503,-75.1437),
+    st('sgmfl','Spring Garden (El)',39.9606,-75.1413), st('girmfl','Girard (El)',39.9700,-75.1340),
+    st('berks','Berks',39.9770,-75.1338),    st('alleg','Allegheny (El)',39.9986,-75.1180),
+    st('fftc','Frankford TC',40.0247,-75.0786)
+  ],
+  BSL:[
+    st('nrg','NRG',39.9054,-75.1716),        st('snyder','Snyder',39.9226,-75.1697),
+    st('tasker','Tasker–Morris',39.9305,-75.1688), st('ellsworth','Ellsworth–Federal',39.9391,-75.1679),
+    st('lombard','Lombard–South',39.9445,-75.1672), st('walnut','Walnut–Locust',39.9486,-75.1645),
+    st('cityhall','City Hall',39.9526,-75.1635), st('racevine','Race–Vine',39.9583,-75.1620),
+    st('sgbsl','Spring Garden (Broad)',39.9637,-75.1605), st('girbsl','Girard (Broad)',39.9711,-75.1590),
+    st('cecil','Cecil B. Moore',39.9805,-75.1554), st('erie','Erie',40.0114,-75.1517),
+    st('olney','Olney TC',40.0345,-75.1442), st('fernrock','Fern Rock TC',40.0405,-75.1380)
+  ],
+  CHW:[
+    st('chw','Chestnut Hill West',40.0770,-75.2083), st('stmartins','St. Martins',40.0726,-75.2089),
+    st('highland','Highland',40.0681,-75.2046), st('allenlane','Allen Lane',40.0612,-75.1978),
+    st('carpenter','Carpenter',40.0560,-75.1925), st('upsal','Upsal',40.0468,-75.1862),
+    st('tulpe','Tulpehocken',40.0428,-75.1832), st('chelten','Chelten Avenue',40.0385,-75.1782),
+    st('queenlane','Queen Lane',40.0233,-75.1788), st('30rr','30th Street Station',39.9566,-75.1819),
+    st('suburban','Suburban Station',39.9538,-75.1668), st('jefferson','Jefferson Station',39.9525,-75.1581)
+  ],
+  PATCO:[
+    st('p1516','15–16th & Locust',39.9479,-75.1672), st('p1213','12–13th & Locust',39.9477,-75.1620),
+    st('p910','9–10th & Locust',39.9475,-75.1572),   st('p8','8th & Market (PATCO)',39.9512,-75.1535),
+    st('pfrank','Franklin Square',39.9553,-75.1505), st('pchcam','City Hall (Camden)',39.9453,-75.1212),
+    st('pbway','Broadway (Camden)',39.9426,-75.1186), st('pferry','Ferry Avenue',39.9234,-75.0918),
+    st('pcoll','Collingswood',39.9160,-75.0651),     st('pwest','Westmont',39.9067,-75.0466),
+    st('phadd','Haddonfield',39.8970,-75.0372),      st('pwood','Woodcrest',39.8699,-75.0115),
+    st('pash','Ashland',39.8579,-74.9957),           st('plind','Lindenwold',39.8344,-74.9978)
+  ]
+};
+for(const [ln,ids] of Object.entries(SEQ)) ids.forEach(id=>STATIONS[id].lines.push(ln));
+/* per-line minutes between consecutive stations (default 2) */
+const SEGMIN = {
+  MFL:{default:2,'alleg|fftc':4}, BSL:{default:2,'cecil|erie':3,'erie|olney':3},
+  CHW:{default:2,'queenlane|30rr':9,'30rr|suburban':4,'suburban|jefferson':3},
+  PATCO:{default:2,'pfrank|pchcam':4,'pbway|pferry':3,'pferry|pcoll':3,'pwest|phadd':2,'phadd|pwood':4,'pwood|pash':2,'pash|plind':3}
+};
+/* explicit walking transfers between distinct stations, minutes */
+const TRANSFERS = [
+  ['15mfl','cityhall',2], ['13mfl','p1213',3], ['8mfl','p8',1],
+  ['walnut','p1516',3],  ['walnut','p1213',4],
+  ['30rr','30mfl',3],    ['suburban','cityhall',3], ['suburban','15mfl',3],
+  ['jefferson','11mfl',2]
+];
+/* Indego docks — Philadelphia only (no Camden-side docks, by design of the real system) */
+const DOCKS = [
+  ['d_ritt','Indego: 18th & Walnut',39.9495,-75.1710], ['d_chall','Indego: 15th & Market',39.9526,-75.1652],
+  ['d_11pine','Indego: 11th & Pine',39.9442,-75.1590], ['d_2mkt','Indego: 2nd & Market',39.9500,-75.1436],
+  ['d_nolibs','Indego: 2nd & Girard',39.9697,-75.1402],['d_pass','Indego: Broad & Passyunk',39.9286,-75.1684],
+  ['d_epass','Indego: E Passyunk & Dickinson',39.9296,-75.1611], ['d_grad','Indego: 22nd & Federal',39.9368,-75.1796],
+  ['d_30th','Indego: 30th St Station',39.9553,-75.1815], ['d_40wal','Indego: 40th & Walnut',39.9536,-75.2036],
+  ['d_fish','Indego: Frankford & Girard',39.9707,-75.1330], ['d_23s','Indego: 23rd & South',39.9450,-75.1790],
+  ['d_sgb','Indego: Broad & Spring Garden',39.9634,-75.1614]
+].map(([id,name,lat,lng])=>({id,name,lat,lng}));
+const PRESETS = {
+  'mtairy-collingswood':{a:[40.0589,-75.1920,'Mt. Airy (Allens Lane area)'], b:[39.9180,-75.0710,'Collingswood, NJ']},
+  'pbreeze-haddonfield':{a:[39.9330,-75.1850,'Point Breeze'], b:[39.8990,-75.0350,'Haddonfield, NJ']},
+  'fishtown-ucity':{a:[39.9730,-75.1290,'Fishtown'], b:[39.9522,-75.1990,'University City (40th & Spruce)']},
+  'bella-fernrock':{a:[39.9395,-75.1560,'Bella Vista'], b:[40.0420,-75.1330,'Fern Rock']},
+  'grad-frankford':{a:[39.9400,-75.1810,'Graduate Hospital'], b:[40.0210,-75.0820,'Frankford']}
+};
+</script>
+<script>
+/* ================= ROUTING ENGINE ================= */
+const BIKE_MPH=11, WALK_MPH=3.1, CIRCUITY=1.3;
+const WALK_MAX=1.05, BIKE_MAX=6.5, LOCK_MIN=1.5, DOCK_MIN=1.5;
+function hav(a,b){
+  const R=3958.8,t=Math.PI/180;
+  const dLat=(b.lat-a.lat)*t, dLng=(b.lng-a.lng)*t;
+  const h=Math.sin(dLat/2)**2+Math.cos(a.lat*t)*Math.cos(b.lat*t)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+const bikeMin=d=>d*CIRCUITY/BIKE_MPH*60, walkMin=d=>d*CIRCUITY/WALK_MPH*60;
+const lineAllowsBike=(ln,peak)=>LINES[ln].bikes==='always'||(!peak);
+function segMin(ln,a,b){const t=SEGMIN[ln];return t[a+'|'+b]||t[b+'|'+a]||t.default;}
+
+/* Build adjacency for one scenario. Node keys: O, D, S:<id>, P:<id>:<line>, K:<id>.
+   State = nodeKey + '#' + bike(0|1). Edge = {to, min, leg:{mode,from,to,label,line?}} */
+function neighbors(state, ctx){
+  const [key,bs]=state.split('#'); const bike=bs==='1';
+  const {scenario,peak,A,B}=ctx; const out=[];
+  const pos=k=>{
+    if(k==='O')return A; if(k==='D')return B;
+    if(k.startsWith('S:'))return STATIONS[k.slice(2)];
+    if(k.startsWith('K:'))return DOCKS.find(d=>d.id===k.slice(2));
+    const [,id]=k.split(':');return STATIONS[id];
+  };
+  const here=pos(key);
+  const push=(toKey,toBike,min,leg)=>out.push({to:toKey+'#'+(toBike?1:0),min,leg});
+  const access=(target,tKey)=>{
+    const d=hav(here,target);
+    if(scenario!=='baseline'&&scenario!=='indego'&&bike&&d<=BIKE_MAX&&(key==='O'||key.startsWith('S:')||tKey==='D'))
+      push(tKey,true,bikeMin(d),{mode:'bike',from:here,to:target,dist:d,label:`Bike ${d.toFixed(1)} mi`});
+    if(d<=WALK_MAX)
+      push(tKey,bike&&scenario==='carry',walkMin(d),{mode:'walk',from:here,to:target,dist:d,label:`Walk ${d.toFixed(1)} mi`});
+  };
+  if(key==='O'){
+    for(const s of Object.values(STATIONS)) access(s,'S:'+s.id);
+    if(scenario==='indego') for(const dk of DOCKS){const d=hav(here,dk);if(d<=WALK_MAX)push('K:'+dk.id,false,walkMin(d),{mode:'walk',from:here,to:dk,dist:d,label:`Walk ${d.toFixed(1)} mi to ${dk.name}`});}
+    access(B,'D');
+  }
+  if(key.startsWith('S:')){
+    const id=key.slice(2), s=STATIONS[id];
+    /* enter platforms */
+    for(const ln of s.lines){
+      if(bike){
+        if(scenario==='carry'&&lineAllowsBike(ln,peak))
+          push(`P:${id}:${ln}`,true,LINES[ln].headway/2+1,{mode:'wait',from:s,to:s,label:`Wait for ${LINES[ln].name} (~${LINES[ln].headway} min headway), bike aboard`,line:ln});
+        if(scenario==='lock')
+          push(`P:${id}:${ln}`,false,LINES[ln].headway/2+1+LOCK_MIN,{mode:'wait',from:s,to:s,label:`Lock bike at ${s.name}, wait for ${LINES[ln].name}`,line:ln});
+      } else {
+        push(`P:${id}:${ln}`,false,LINES[ln].headway/2+1,{mode:'wait',from:s,to:s,label:`Wait for ${LINES[ln].name} (~${LINES[ln].headway} min headway)`,line:ln});
+      }
+    }
+    /* transfers */
+    for(const [x,y,m] of TRANSFERS){
+      const o=x===id?y:(y===id?x:null);
+      if(o)push('S:'+o,bike,m,{mode:'walk',from:s,to:STATIONS[o],dist:hav(s,STATIONS[o]),label:`Transfer walk to ${STATIONS[o].name}`});
+    }
+    /* egress */
+    if(scenario==='indego')for(const dk of DOCKS){const d=hav(s,dk);if(d<=WALK_MAX*0.6)push('K:'+dk.id,false,walkMin(d),{mode:'walk',from:s,to:dk,dist:d,label:`Walk ${d.toFixed(1)} mi to ${dk.name}`});}
+    access(B,'D');
+  }
+  if(key.startsWith('P:')){
+    const [,id,ln]=key.split(':'); const seq=SEQ[ln]; const i=seq.indexOf(id);
+    for(const j of [i-1,i+1]) if(j>=0&&j<seq.length)
+      push(`P:${seq[j]}:${ln}`,bike,segMin(ln,id,seq[j]),{mode:'ride',from:STATIONS[id],to:STATIONS[seq[j]],label:LINES[ln].name,line:ln});
+    push('S:'+id,bike,0.5,{mode:'alight',from:STATIONS[id],to:STATIONS[id],label:`Get off at ${STATIONS[id].name}`,line:ln});
+  }
+  if(key.startsWith('K:')){
+    const dk=DOCKS.find(d=>d.id===key.slice(2));
+    for(const o of DOCKS){if(o.id===dk.id)continue;const d=hav(dk,o);if(d<=BIKE_MAX)push('K:'+o.id,false,bikeMin(d)+DOCK_MIN,{mode:'bike',from:dk,to:o,dist:d,indego:true,label:`Indego ${d.toFixed(1)} mi → ${o.name}`});}
+    for(const s of Object.values(STATIONS)){const d=hav(dk,s);if(d<=WALK_MAX*0.6)push('S:'+s.id,false,walkMin(d),{mode:'walk',from:dk,to:s,dist:d,label:`Walk ${d.toFixed(1)} mi to ${s.name}`});}
+    const d=hav(dk,B);if(d<=WALK_MAX)push('D',false,walkMin(d),{mode:'walk',from:dk,to:B,dist:d,label:`Walk ${d.toFixed(1)} mi`});
+  }
+  return out;
+}
+function route(scenario,peak,A,B){
+  const startBike=(scenario==='carry'||scenario==='lock');
+  const start='O#'+(startBike?1:0);
+  const dist={[start]:0}, prev={}, done=new Set(), pq=[[0,start]];
+  const ctx={scenario,peak,A,B};
+  while(pq.length){
+    let bi=0;for(let i=1;i<pq.length;i++)if(pq[i][0]<pq[bi][0])bi=i;
+    const [d,u]=pq.splice(bi,1)[0];
+    if(done.has(u))continue; done.add(u);
+    if(u.startsWith('D#')){ /* reconstruct */
+      const legs=[];let cur=u;
+      while(prev[cur]){legs.push(prev[cur].leg);cur=prev[cur].from;}
+      legs.reverse();
+      return {min:d,legs:mergeLegs(legs)};
+    }
+    if(d>240)continue;
+    for(const e of neighbors(u,ctx)){
+      const nd=d+e.min;
+      if(nd<(dist[e.to]??Infinity)){dist[e.to]=nd;prev[e.to]={from:u,leg:{...e.leg,min:e.min}};pq.push([nd,e.to]);}
+    }
+  }
+  return null;
+}
+function mergeLegs(legs){
+  /* pass 1: merge consecutive rides on the same line, fold alight into the ride */
+  const out=[];
+  for(const l of legs){
+    const last=out[out.length-1];
+    if((l.mode==='walk'||l.mode==='bike')&&last&&last.mode===l.mode&&!l.indego&&!last.indego){
+      last.min+=l.min;last.to=l.to;last.dist=(last.dist||0)+(l.dist||hav(l.from,l.to));
+      last.label=`${l.mode==='bike'?'Bike':'Walk'} ${last.dist.toFixed(1)} mi`;
+    } else if(l.mode==='ride'&&last&&last.mode==='ride'&&last.line===l.line){
+      last.to=l.to;last.min+=l.min;last.stops=(last.stops||1)+1;
+    } else if(l.mode==='alight'&&last&&last.mode==='ride'&&last.line===l.line){
+      last.min+=l.min;last.alight=l.to.name;
+    } else out.push({...l,stops:l.mode==='ride'?1:undefined});
+  }
+  /* pass 2: fold each wait into the ride that follows it */
+  const final=[];
+  for(let i=0;i<out.length;i++){
+    const l=out[i];
+    if(l.mode==='wait'&&out[i+1]&&out[i+1].mode==='ride'){
+      out[i+1].wait=l.min;out[i+1].board=l.from.name;out[i+1].waitLabel=l.label;
+      out[i+1].min+=l.min;
+      continue;
+    }
+    final.push(l);
+  }
+  return final;
+}
+/* ================= FARES ================= */
+const METRO_FARE=2.90;                      /* SEPTA Bus/Metro base, 2 free transfers/120min */
+const RR_ZONE_FARE={CC:0,Z1:5.25,Z2:5.75}; /* SEPTA Regional Rail weekday, ESTIMATED post-increase */
+const CHW_ZONE={chw:'Z2',stmartins:'Z2',highland:'Z2',allenlane:'Z2',carpenter:'Z2',upsal:'Z2',
+  tulpe:'Z1',chelten:'Z1',queenlane:'Z1','30rr':'CC',suburban:'CC',jefferson:'CC'};
+const PGRP={p1516:'PHL',p1213:'PHL',p910:'PHL',p8:'PHL',pfrank:'PHL',
+  pchcam:'CAM',pbway:'CAM',pferry:'FER',pcoll:'MID',pwest:'MID',phadd:'MID',
+  pwood:'OUT',pash:'OUT',plind:'OUT'};
+const PATCO_FROM_PHL={PHL:1.40,CAM:1.40,FER:2.25,MID:2.60,OUT:3.00};
+function patcoFare(a,b){
+  const ga=PGRP[a],gb=PGRP[b];
+  if(ga==='PHL'||gb==='PHL')return PATCO_FROM_PHL[ga==='PHL'?gb:ga];
+  return 1.60; /* NJ <-> NJ */
+}
+const INDEGO_SINGLE=4.50, INDEGO_OVERAGE=0.30; /* per min past 30 */
+function tripCost(r,prof){
+  let cost=0, metroPaid=false; const items=[]; let est=false;
+  for(const l of r.legs){
+    if(l.mode==='ride'){
+      if(l.line==='MFL'||l.line==='BSL'){
+        if(!metroPaid){cost+=METRO_FARE;items.push(`SEPTA Metro $${METRO_FARE.toFixed(2)}`);metroPaid=true;}
+      } else if(l.line==='CHW'){
+        const zo=CHW_ZONE[l.from.id]||'CC', zd=CHW_ZONE[(l.to&&l.to.id)||'']||'CC';
+        const f=Math.max(RR_ZONE_FARE[zo],RR_ZONE_FARE[zd])||RR_ZONE_FARE.Z1;
+        cost+=f;items.push(`Regional Rail ~$${f.toFixed(2)}`);est=true;
+      } else if(l.line==='PATCO'){
+        const f=patcoFare(l.from.id,(l.to&&l.to.id)||l.from.id);
+        cost+=f;items.push(`PATCO $${f.toFixed(2)}`);
+      }
+    }
+    if(l.mode==='bike'&&l.indego){
+      if(prof.indego==='member'){items.push('Indego $0 (plan)');}
+      else{
+        let f=INDEGO_SINGLE; const over=Math.max(0,l.min-DOCK_MIN-30);
+        if(over>0)f+=over*INDEGO_OVERAGE;
+        cost+=f;items.push(`Indego $${f.toFixed(2)}`);
+      }
+    }
+  }
+  return {cost,items,est};
+}
+/* ================= UI ================= */
+const map=L.map('map',{zoomControl:true}).setView([39.965,-75.12],11);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+  attribution:'&copy; OpenStreetMap &copy; CARTO',maxZoom:19
+}).addTo(map);
+/* draw network */
+for(const [ln,ids] of Object.entries(SEQ)){
+  L.polyline(ids.map(id=>[STATIONS[id].lat,STATIONS[id].lng]),{color:LINES[ln].color,weight:3,opacity:.55}).addTo(map);
+  for(const id of ids){
+    const s=STATIONS[id];
+    L.marker([s.lat,s.lng],{icon:L.divIcon({className:'',html:`<div class="stn-ic" style="width:9px;height:9px;background:${LINES[ln].color}"></div>`,iconSize:[9,9],iconAnchor:[4,4]}),keyboard:false})
+      .addTo(map).bindTooltip(`${s.name} — ${s.lines.map(l=>LINES[l].name).join(' / ')}`);
+  }
+}
+for(const dk of DOCKS){
+  L.marker([dk.lat,dk.lng],{icon:L.divIcon({className:'',html:'<div class="dock-ic" style="width:8px;height:8px;background:#12a37a"></div>',iconSize:[8,8],iconAnchor:[4,4]}),keyboard:false})
+    .addTo(map).bindTooltip(dk.name);
+}
+let A=null,B=null,nextIsA=true,mA=null,mB=null,routeLayers=[],itins={},selected=null;
+const $=id=>document.getElementById(id);
+function abIcon(t){return L.divIcon({className:'',html:`<div class="ab-ic" style="width:24px;height:24px">${t}</div>`,iconSize:[24,24],iconAnchor:[12,12]});}
+function setPoint(which,lat,lng,label){
+  const p={lat,lng,name:label||`${lat.toFixed(4)}, ${lng.toFixed(4)}`};
+  if(which==='A'){A=p;if(mA)mA.remove();mA=L.marker([lat,lng],{icon:abIcon('A')}).addTo(map);$('aLabel').textContent=p.name;}
+  else{B=p;if(mB)mB.remove();mB=L.marker([lat,lng],{icon:abIcon('B')}).addTo(map);$('bLabel').textContent=p.name;}
+  compute();
+}
+map.on('click',e=>{setPoint(nextIsA?'A':'B',e.latlng.lat,e.latlng.lng);nextIsA=!nextIsA;});
+$('preset').addEventListener('change',e=>{
+  const p=PRESETS[e.target.value];if(!p)return;
+  setPoint('A',p.a[0],p.a[1],p.a[2]);setPoint('B',p.b[0],p.b[1],p.b[2]);nextIsA=true;
+  map.fitBounds([[p.a[0],p.a[1]],[p.b[0],p.b[1]]],{padding:[40,40]});
+});
+$('clear').addEventListener('click',()=>{
+  A=B=null;nextIsA=true;if(mA)mA.remove();if(mB)mB.remove();mA=mB=null;
+  $('aLabel').textContent='Tap map to set start';$('bLabel').textContent='…then destination';
+  $('preset').value='';clearRoutes();
+  $('results').innerHTML='<div class="hint" style="padding-top:4px">Pick an example trip or set two points on the map.</div>';
+});
+$('peak').addEventListener('change',compute);
+for(const id of ['hasBike','carryOK','indegoPlan'])$(id).addEventListener('change',compute);
+function clearRoutes(){routeLayers.forEach(l=>l.remove());routeLayers=[];}
+const SCENARIOS=[
+  {id:'baseline',name:'Walk + transit',sub:'the Google Maps answer'},
+  {id:'carry',name:'Bike carried aboard',sub:'bike rides the train with you'},
+  {id:'lock',name:'Bike to station, lock it',sub:'bike the first mile, walk the last'},
+  {id:'indego',name:'Indego bikeshare',sub:'dock-to-dock legs, Philly side only'}
+];
+let PROF={hasBike:true,carryOK:true,indego:'payg'},ACTIVE=[];
+function readProfile(){
+  PROF={hasBike:$('hasBike').checked,carryOK:$('carryOK').checked,indego:$('indegoPlan').value};
+  $('carryOK').disabled=!PROF.hasBike;
+  ACTIVE=SCENARIOS.filter(sc=>
+    sc.id==='baseline'||
+    (sc.id==='carry'&&PROF.hasBike&&PROF.carryOK)||
+    (sc.id==='lock'&&PROF.hasBike)||
+    (sc.id==='indego'&&PROF.indego!=='none'));
+}
+function compute(){
+  if(!A||!B)return;
+  readProfile();
+  const peak=$('peak').checked;
+  itins={};clearRoutes();
+  let html='';
+  const base=route('baseline',peak,A,B);
+  for(const sc of ACTIVE){
+    const r=sc.id==='baseline'?base:route(sc.id,peak,A,B);
+    itins[sc.id]=r;
+    html+=card(sc,r,base);
+  }
+  if(PROF.hasBike){
+    const directBike=bikeMin(hav(A,B));
+    html+=`<div class="note">Reference: riding the whole way on your bike ≈ <b style="color:var(--text)">${Math.round(directBike)} min</b> (${(hav(A,B)*CIRCUITY).toFixed(1)} mi street distance), $0.${peak?' Peak hours: SEPTA bars bikes on board, so carry-aboard itineraries lean on PATCO or fall back to riding.':''}</div>`;
+  }
+  html+=`<div class="note">Costs assume contactless/Key payment. PATCO fares exact; SEPTA Metro $2.90 incl. free transfers; Regional Rail zone fares are estimates${PROF.indego==='member'?'; Indego plan cost ($20/mo or $156/yr) not counted per-trip':''}.</div>`;
+  $('results').innerHTML=html;
+  document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>select(c.dataset.sc)));
+  select(bestScenario());
+}
+function bestScenario(){
+  let best=null,bt=Infinity;
+  for(const sc of ACTIVE){const r=itins[sc.id];if(r&&r.min<bt){bt=r.min;best=sc.id;}}
+  return best;
+}
+function card(sc,r,base){
+  if(!r)return `<div class="card" data-sc="${sc.id}"><div class="top"><div class="name">${sc.name}</div><div class="time" style="color:var(--faint)">—</div></div><div class="nf">No feasible itinerary under current rules${sc.id==='carry'?' (bikes barred on the lines this trip needs right now)':''}${sc.id==='indego'?' (trip ends beyond Indego’s service area or docks)':''}.</div></div>`;
+  const delta=base&&base.min?r.min-base.min:0;
+  const dTxt=sc.id==='baseline'?'<span class="delta base">baseline</span>':
+    delta<-0.5?`<span class="delta faster">−${Math.round(-delta)} min</span>`:
+    delta>0.5?`<span class="delta slower">+${Math.round(delta)} min</span>`:'<span class="delta base">≈ same</span>';
+  let strip='<div class="strip">';
+  strip+=`<div class="endrow"><div class="rail"><div class="dot" style="border-color:var(--text)"></div></div><div class="body">Start</div></div>`;
+  for(const l of r.legs){
+    const c=l.line?LINES[l.line].color:(l.mode==='bike'?'var(--bike)':'var(--walk)');
+    const dash=l.mode==='ride'?'solid':'dashed';
+    let txt;
+    if(l.mode==='ride'){
+      txt=`<b>${LINES[l.line].name}</b><br>${l.board?`Board at ${l.board}`:''}${l.alight?` → ${l.alight}`:''}${l.stops?` · ${l.stops} stops`:''}${l.wait?`<br>incl. ~${Math.round(l.wait)} min wait`:''}`;
+    } else txt=l.label;
+    strip+=`<div class="leg"><div class="rail"><div class="seg ${dash}" style="--c:${c}"></div><div class="dot" style="border-color:${c}"></div></div><div class="body">${txt}</div><div class="min">${Math.max(1,Math.round(l.min))}m</div></div>`;
+  }
+  strip+=`<div class="endrow"><div class="rail"></div><div class="body">Arrive</div></div></div>`;
+  const tc=tripCost(r,PROF);
+  const costChip=`<span class="cost" title="${tc.items.join(' + ')||'no fares'}">${tc.cost===0?'$0':(tc.est?'~':'')+'$'+tc.cost.toFixed(2)}</span>`;
+  return `<div class="card" data-sc="${sc.id}"><div class="top"><div class="name">${sc.name}</div>${costChip}${dTxt}<div class="time">${Math.round(r.min)}<span style="font-size:11px;color:var(--dim)"> min</span></div></div><div class="hint">${sc.sub}${tc.items.length?' · '+tc.items.join(' + '):''}</div>${strip}</div>`;
+}
+function select(scId){
+  if(!scId)return;
+  selected=scId;clearRoutes();
+  document.querySelectorAll('.card').forEach(c=>c.classList.toggle('sel',c.dataset.sc===scId));
+  for(const sc of SCENARIOS){
+    const r=itins[sc.id];if(!r)continue;
+    const isSel=sc.id===scId;
+    for(const l of r.legs){
+      if(!l.from||!l.to||l.mode==='wait')continue;
+      let pts=[[l.from.lat,l.from.lng],[l.to.lat,l.to.lng]];
+      if(l.mode==='ride'&&l.line){
+        const seq=SEQ[l.line],i=seq.findIndex(id=>id===l.from.id),
+              j=seq.findIndex(id=>STATIONS[id].name===l.alight||id===l.to.id);
+        if(i>-1&&j>-1){const lo=Math.min(i,j),hi=Math.max(i,j);let slice=seq.slice(lo,hi+1).map(id=>[STATIONS[id].lat,STATIONS[id].lng]);if(i>j)slice.reverse();pts=slice;}
+      }
+      const c=l.line?LINES[l.line].color:(l.mode==='bike'?'#12a37a':'#8a94a0');
+      routeLayers.push(L.polyline(pts,{color:c,weight:isSel?5:2,opacity:isSel?0.95:0.15,dashArray:l.mode==='ride'?null:(l.mode==='bike'?'8 6':'2 7')}).addTo(map));
+    }
+  }
+}
+</script>
+</body>
+</html>
