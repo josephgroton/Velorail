@@ -89,11 +89,10 @@
   .ab-ic{display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--ink);color:#fff;font:700 12px/1 var(--mono);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
   @media (max-width:760px){
     #app{flex-direction:column}
-    #side{width:100%;min-width:0;max-height:62%;order:2;overflow-y:auto}
+    #side{width:100%;min-width:0;max-height:62%;order:2;overflow-y:auto;display:block}
     #map{order:1;min-height:38%}
     header p{display:none}
     footer{display:none}
-    #results{flex:none;overflow-y:visible}
   }
   @media (prefers-reduced-motion: reduce){ *{transition:none!important} }
 </style>
