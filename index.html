@@ -161,7 +161,7 @@
         </div>
       </div>
       <label class="pt"><input type="checkbox" id="peak"> Peak hours (weekday 6–9a inbound / 3–6p outbound) — SEPTA bars bikes on inbound trains AM and outbound trains PM; PATCO always allows bikes</label>
-      <div class="hint">Type to search — pick a suggestion or press Enter. You can also click the map. Network: MFL, BSL, Chestnut Hill West, PATCO, and sample Indego docks.</div>
+      <div class="hint">Type to search — pick a suggestion or press Enter. You can also click the map. Network: all SEPTA Regional Rail lines, MFL, BSL, PATCO, surface trolleys, and sample Indego docks.</div>
     </div>
     <div id="results"><div class="hint" style="padding-top:4px">Pick an example trip or set two points on the map.</div></div>
     <footer>Prototype. Schedules are modeled as average headways, not live GTFS; station coordinates approximate; bike/walk legs use straight-line distance × 1.3 street factor (bike 11&nbsp;mph, walk 3.1&nbsp;mph).</footer>
@@ -172,10 +172,30 @@
 <script>
 /* ================= NETWORK DATA ================= */
 const LINES = {
-  MFL:  {name:'Market–Frankford Line', color:'#1c66b8', headway:6,  bikes:'offpeak'},
-  BSL:  {name:'Broad Street Line',     color:'#e06a10', headway:8,  bikes:'offpeak'},
-  CHW:  {name:'Chestnut Hill West Regional Rail', color:'#3d6832', headway:35, bikes:'offpeak'},
-  PATCO:{name:'PATCO Speedline',       color:'#c22828', headway:12, bikes:'always'}
+  MFL:  {name:'Market–Frankford Line',  color:'#1c66b8', headway:6,  bikes:'offpeak'},
+  BSL:  {name:'Broad Street Line',      color:'#e06a10', headway:8,  bikes:'offpeak'},
+  CHW:  {name:'Chestnut Hill West',     color:'#3d6832', headway:35, bikes:'offpeak', rr:true},
+  PATCO:{name:'PATCO Speedline',        color:'#c22828', headway:12, bikes:'always'},
+  /* SEPTA Regional Rail — PRR-side */
+  PAO:  {name:'Paoli/Thorndale',        color:'#6A1B9A', headway:30, bikes:'offpeak', rr:true},
+  MED:  {name:'Media/Wawa',             color:'#880E4F', headway:30, bikes:'offpeak', rr:true},
+  WIL:  {name:'Wilmington/Newark',      color:'#37474F', headway:30, bikes:'offpeak', rr:true},
+  AIR:  {name:'Airport Line',           color:'#01579B', headway:30, bikes:'offpeak', rr:true},
+  /* SEPTA Regional Rail — Reading-side */
+  CHE:  {name:'Chestnut Hill East',     color:'#C07820', headway:35, bikes:'offpeak', rr:true},
+  FOX:  {name:'Fox Chase Line',         color:'#BF360C', headway:30, bikes:'offpeak', rr:true},
+  LAN:  {name:'Lansdale/Doylestown',    color:'#1A237E', headway:30, bikes:'offpeak', rr:true},
+  NOR:  {name:'Norristown Line',        color:'#4E342E', headway:30, bikes:'offpeak', rr:true},
+  WAR:  {name:'Warminster Line',        color:'#E65100', headway:30, bikes:'offpeak', rr:true},
+  WTR:  {name:'West Trenton Line',      color:'#006064', headway:60, bikes:'offpeak', rr:true},
+  TRE:  {name:'Trenton Line',           color:'#004D40', headway:30, bikes:'offpeak', rr:true},
+  CYN:  {name:'Cynwyd Line',            color:'#558B2F', headway:60, bikes:'offpeak', rr:true},
+  /* SEPTA Surface Trolleys */
+  T10:  {name:'Route 10 (Lancaster/Sharon Hill)', color:'#2E7D32', headway:10, bikes:'offpeak'},
+  T11:  {name:'Route 11 (Darby/Woodland)',        color:'#2E7D32', headway:10, bikes:'offpeak'},
+  T13:  {name:'Route 13 (Chester Ave)',            color:'#2E7D32', headway:10, bikes:'offpeak'},
+  T34:  {name:'Route 34 (Baltimore Ave)',          color:'#2E7D32', headway:10, bikes:'offpeak'},
+  T36:  {name:'Route 36 (Elmwood Ave)',            color:'#2E7D32', headway:10, bikes:'offpeak'},
 };
 /* st(id,name,lat,lng) — order within each line array is track order */
 const STATIONS = {};
@@ -217,6 +237,147 @@ const SEQ = {
     st('pcoll','Collingswood',39.9160,-75.0651),     st('pwest','Westmont',39.9067,-75.0466),
     st('phadd','Haddonfield',39.8970,-75.0372),      st('pwood','Woodcrest',39.8699,-75.0115),
     st('pash','Ashland',39.8579,-74.9957),           st('plind','Lindenwold',39.8344,-74.9978)
+  ],
+  /* ---- Shared Reading-side RR stations (defined here, referenced by ID in other lines) ---- */
+  /* templu, nbroadrr, waynejct defined first in CHE; univcity defined in PAO;
+     frnrkrr/melrose/elkins/jenktown/glenside defined in LAN; chestertc in MED */
+  /* ---- PAO: Paoli/Thorndale (PRR west) ---- */
+  PAO:[
+    st('thorndale','Thorndale',39.963,-75.758),      st('downingtown','Downingtown',39.968,-75.703),
+    st('whitford','Whitford',40.026,-75.639),         st('exton','Exton',40.028,-75.621),
+    st('malvern','Malvern',40.036,-75.513),           st('paoli','Paoli',40.042,-75.481),
+    st('daylesford','Daylesford',40.043,-75.455),     st('berwyn','Berwyn',40.045,-75.440),
+    st('devon','Devon',40.058,-75.428),               st('strafford','Strafford',40.051,-75.405),
+    st('wayne_rr','Wayne',40.047,-75.389),            st('stdavids','St. Davids',40.044,-75.380),
+    st('radnor','Radnor',40.044,-75.358),             st('villanova','Villanova',40.033,-75.344),
+    st('rosemont','Rosemont',40.022,-75.334),         st('brynmawr','Bryn Mawr',40.018,-75.318),
+    st('haverford','Haverford',40.003,-75.306),       st('ardmore_rr','Ardmore',40.000,-75.287),
+    st('wynnewood','Wynnewood',39.999,-75.275),       st('narberth_rr','Narberth',40.006,-75.260),
+    st('merion','Merion',40.007,-75.244),             st('overbrook','Overbrook',40.013,-75.235),
+    st('univcity','University City',39.952,-75.193),
+    '30rr','suburban','jefferson'
+  ],
+  /* ---- MED: Media/Wawa (PRR southwest) ---- */
+  MED:[
+    st('media','Media',39.917,-75.387),               st('elwyn','Elwyn',39.905,-75.415),
+    st('wawa','Wawa',39.872,-75.449),                  st('glenriddle','Glen Riddle',39.875,-75.435),
+    st('chestertc','Chester TC',39.849,-75.359),       st('eddystone','Eddystone',39.849,-75.350),
+    st('crumlynne','Crum Lynne',39.859,-75.349),       st('ridleypark','Ridley Park',39.882,-75.322),
+    st('lester','Lester',39.903,-75.316),              st('primos','Primos',39.905,-75.308),
+    st('secane','Secane',39.905,-75.306),              st('cliftaldan','Clifton-Aldan',39.928,-75.301),
+    st('lansdowne','Lansdowne',39.937,-75.272),        st('fernwood','Fernwood-Yeadon',39.928,-75.257),
+    st('angora','Angora',39.951,-75.226),
+    'univcity','30rr','suburban','jefferson'
+  ],
+  /* ---- WIL: Wilmington/Newark (PRR south) ---- */
+  WIL:[
+    st('newark_de','Newark, DE',39.684,-75.750),       st('churchmans','Churchmans Crossing',39.666,-75.663),
+    st('wilmington','Wilmington',39.736,-75.551),      st('claymont','Claymont',39.801,-75.459),
+    st('highlandave','Highland Avenue',39.827,-75.406),
+    'chestertc','univcity','30rr','suburban','jefferson'
+  ],
+  /* ---- AIR: Airport Line (PRR south spur) ---- */
+  AIR:[
+    st('air_ef','Airport Terminal E/F',39.876,-75.248), st('air_cd','Airport Terminal C/D',39.874,-75.243),
+    st('air_ab','Airport Terminal A/B',39.872,-75.238), st('eastwick','Eastwick',39.893,-75.245),
+    'univcity','30rr','suburban','jefferson'
+  ],
+  /* ---- CHE: Chestnut Hill East (Reading northwest) ---- */
+  CHE:[
+    st('che','Chestnut Hill East',40.079,-75.185),     st('wyndmoor','Wyndmoor',40.083,-75.191),
+    st('gravers','Gravers',40.075,-75.190),             st('chelten_che','Chelten Ave (CHE)',40.057,-75.179),
+    st('tulpe_che','Tulpehocken (CHE)',40.052,-75.178), st('wister','Wister',40.044,-75.172),
+    st('germantown_rr','Germantown',40.038,-75.172),
+    st('waynejct','Wayne Junction',40.030,-75.162),
+    st('nbroadrr','North Broad Street',40.011,-75.156),
+    st('templu','Temple University',40.003,-75.150),
+    '30rr','suburban','jefferson'
+  ],
+  /* ---- FOX: Fox Chase Line (Reading northeast) ---- */
+  FOX:[
+    st('foxchase','Fox Chase',40.074,-75.082),          st('ryers','Ryers',40.066,-75.094),
+    st('cheltenham','Cheltenham',40.063,-75.105),        st('lawndale','Lawndale',40.058,-75.116),
+    st('logan_rr','Logan',40.044,-75.145),               st('olney_fox','Olney',40.036,-75.148),
+    'waynejct','nbroadrr','templu','30rr','suburban','jefferson'
+  ],
+  /* ---- LAN: Lansdale/Doylestown (Reading north) ---- */
+  LAN:[
+    st('doylestown','Doylestown',40.311,-75.131),        st('newbritian','New Britain',40.295,-75.183),
+    st('chalfont','Chalfont',40.281,-75.208),            st('lansdale','Lansdale',40.241,-75.284),
+    st('kulpsville','Kulpsville',40.198,-75.344),        st('ambler','Ambler',40.153,-75.225),
+    st('ftwashington','Fort Washington',40.144,-75.194), st('oreland','Oreland',40.128,-75.178),
+    st('glenside','Glenside',40.100,-75.153),            st('jenktown','Jenkintown-Wyncote',40.097,-75.133),
+    st('elkinspark','Elkins Park',40.076,-75.120),       st('melrosepark','Melrose Park',40.065,-75.128),
+    st('frnrkrr','Fern Rock TC (RR)',40.038,-75.144),
+    'waynejct','nbroadrr','templu','30rr','suburban','jefferson'
+  ],
+  /* ---- NOR: Norristown Line (Reading northwest via Manayunk) ---- */
+  NOR:[
+    st('norristowntc','Norristown TC',40.122,-75.340),   st('miquon','Miquon',40.101,-75.307),
+    st('springmill','Spring Mill',40.098,-75.293),        st('shawmont','Shawmont',40.041,-75.247),
+    st('ivyridge','Ivy Ridge',40.028,-75.237),            st('manayunk_rr','Manayunk',40.025,-75.222),
+    st('wissahickontc','Wissahickon TC',40.031,-75.203),  st('easyfalls','East Falls',40.033,-75.188),
+    'waynejct','nbroadrr','templu','30rr','suburban','jefferson'
+  ],
+  /* ---- WAR: Warminster Line (Reading north) ---- */
+  WAR:[
+    st('warminster','Warminster',40.193,-75.089),         st('hatboro','Hatboro',40.172,-75.102),
+    st('ardsley','Ardsley',40.136,-75.128),               st('roslyn','Roslyn',40.122,-75.117),
+    st('crestmont','Crestmont',40.111,-75.108),
+    'jenktown','elkinspark','melrosepark','frnrkrr',
+    'waynejct','nbroadrr','templu','30rr','suburban','jefferson'
+  ],
+  /* ---- WTR: West Trenton Line (Reading northeast) ---- */
+  WTR:[
+    st('westtrenton','West Trenton',40.250,-74.836),      st('yardley','Yardley',40.240,-74.831),
+    st('trevose','Trevose',40.141,-75.009),               st('somerton','Somerton',40.114,-75.016),
+    'hatboro','crestmont','roslyn','ardsley',
+    'jenktown','elkinspark','melrosepark','frnrkrr',
+    'waynejct','nbroadrr','templu','30rr','suburban','jefferson'
+  ],
+  /* ---- TRE: Trenton Line (PRR northeast corridor) ---- */
+  TRE:[
+    st('trenton','Trenton',40.217,-74.760),               st('tullytown','Tullytown',40.131,-74.814),
+    st('levittown','Levittown',40.118,-74.838),            st('bristol','Bristol',40.100,-74.851),
+    st('croydon','Croydon',40.090,-74.906),               st('eddington','Eddington',40.080,-74.935),
+    st('cornwells','Cornwells Heights',40.068,-74.943),    st('torresdale','Torresdale',40.073,-74.996),
+    st('holmesburgjct','Holmesburg Junction',40.038,-75.050), st('bridesburg','Bridesburg',40.002,-75.054),
+    st('northphila','North Philadelphia',40.010,-75.145),
+    '30rr','suburban','jefferson'
+  ],
+  /* ---- CYN: Cynwyd Line (Reading west, short) ---- */
+  CYN:[
+    st('cynwyd','Cynwyd',40.008,-75.271),                  st('narberth_cyn','Narberth (Cynwyd)',40.006,-75.260),
+    st('wynnefield_ave','Wynnefield Avenue',40.007,-75.220),
+    '30rr','suburban','jefferson'
+  ],
+  /* ---- Trolleys: surface portions, all tunnel through Center City to ~36th St portal ---- */
+  T10:[
+    st('tcc','Trolley Portal (36th & Sansom)',39.954,-75.205),
+    st('t10_40','40th & Lancaster',39.961,-75.219),         st('t10_50','50th & Lancaster',39.969,-75.247),
+    st('t10_60','60th & Lancaster',39.977,-75.274),         st('millbourne','Millbourne',39.961,-75.290),
+    st('cobbs_creek','Cobbs Creek',39.955,-75.292),          st('darby_tc','Darby TC',39.918,-75.259),
+    st('sharon_hill','Sharon Hill',39.904,-75.272)
+  ],
+  T11:[
+    'tcc',
+    st('t11_40','40th & Woodland',39.948,-75.212),           st('t11_52','52nd & Woodland',39.940,-75.241),
+    st('t11_63','63rd & Woodland',39.932,-75.271),           'darby_tc'
+  ],
+  T13:[
+    'tcc',
+    st('t13_40','40th & Chester',39.945,-75.212),            st('t13_52','52nd & Chester',39.935,-75.241),
+    st('t13_63','63rd & Chester',39.927,-75.271)
+  ],
+  T34:[
+    'tcc',
+    st('t34_40','40th & Baltimore',39.944,-75.212),          st('t34_52','52nd & Baltimore',39.935,-75.241),
+    st('t34_63','63rd & Baltimore',39.930,-75.270)
+  ],
+  T36:[
+    'tcc',
+    st('t36_48','48th & Woodland',39.944,-75.230),           st('t36_elm','Elmwood & 60th',39.924,-75.271),
+    st('t36_isl','Elmwood & Island Ave',39.910,-75.280),     st('t36_73','Elmwood & 73rd',39.904,-75.299)
   ]
 };
 for(const [ln,ids] of Object.entries(SEQ)) ids.forEach(id=>STATIONS[id].lines.push(ln));
@@ -224,14 +385,35 @@ for(const [ln,ids] of Object.entries(SEQ)) ids.forEach(id=>STATIONS[id].lines.pu
 const SEGMIN = {
   MFL:{default:2,'alleg|fftc':4}, BSL:{default:2,'cecil|erie':3,'erie|olney':3},
   CHW:{default:2,'queenlane|30rr':9,'30rr|suburban':4,'suburban|jefferson':3},
-  PATCO:{default:2,'pfrank|pchcam':4,'pbway|pferry':3,'pferry|pcoll':3,'pwest|phadd':2,'phadd|pwood':4,'pwood|pash':2,'pash|plind':3}
+  PATCO:{default:2,'pfrank|pchcam':4,'pbway|pferry':3,'pferry|pcoll':3,'pwest|phadd':2,'phadd|pwood':4,'pwood|pash':2,'pash|plind':3},
+  /* Regional Rail — defaults cover most segments; overrides for notable gaps */
+  PAO:{default:3,'thorndale|downingtown':5,'downingtown|whitford':6,'whitford|exton':3,'exton|malvern':5,'malvern|paoli':3,'30rr|suburban':4,'suburban|jefferson':3},
+  MED:{default:3,'30rr|suburban':4,'suburban|jefferson':3},
+  WIL:{default:4,'newark_de|churchmans':6,'churchmans|wilmington':5,'30rr|suburban':4,'suburban|jefferson':3},
+  AIR:{default:4,'eastwick|univcity':8,'30rr|suburban':4,'suburban|jefferson':3},
+  CHE:{default:3,'30rr|suburban':4,'suburban|jefferson':3},
+  FOX:{default:3,'30rr|suburban':4,'suburban|jefferson':3},
+  LAN:{default:3,'doylestown|newbritian':5,'newbritian|chalfont':4,'chalfont|lansdale':5,'lansdale|kulpsville':5,'kulpsville|ambler':6,'30rr|suburban':4,'suburban|jefferson':3},
+  NOR:{default:3,'springmill|miquon':3,'miquon|norristowntc':4,'30rr|suburban':4,'suburban|jefferson':3},
+  WAR:{default:3,'warminster|hatboro':4,'30rr|suburban':4,'suburban|jefferson':3},
+  WTR:{default:4,'westtrenton|yardley':5,'30rr|suburban':4,'suburban|jefferson':3},
+  TRE:{default:4,'trenton|tullytown':5,'30rr|suburban':4,'suburban|jefferson':3},
+  CYN:{default:3,'30rr|suburban':4,'suburban|jefferson':3},
+  T10:{default:2}, T11:{default:2}, T13:{default:2}, T34:{default:2}, T36:{default:2}
 };
 /* explicit walking transfers between distinct stations, minutes */
 const TRANSFERS = [
   ['15mfl','cityhall',2], ['13mfl','p1213',3], ['8mfl','p8',1],
   ['walnut','p1516',3],  ['walnut','p1213',4],
   ['30rr','30mfl',3],    ['suburban','cityhall',3], ['suburban','15mfl',3],
-  ['jefferson','11mfl',2]
+  ['jefferson','11mfl',2],
+  /* RR ↔ existing lines */
+  ['univcity','30rr',4],  ['univcity','30mfl',5],
+  ['templu','girbsl',6],  ['northphila','olney',5],
+  ['manayunk_rr','manayunk_rr',0], /* NOR Manayunk near SRT/Wissahickon trails */
+  ['waynejct','girmfl',8],
+  /* Trolley portal ↔ MFL */
+  ['tcc','34th',4],       ['tcc','40th',3]
 ];
 /* Indego docks — Philadelphia only (no Camden-side docks, by design of the real system) */
 const DOCKS = [
@@ -401,9 +583,53 @@ function mergeLegs(legs){
 }
 /* ================= FARES ================= */
 const METRO_FARE=2.90;                      /* SEPTA Bus/Metro base, 2 free transfers/120min */
-const RR_ZONE_FARE={CC:0,Z1:5.25,Z2:5.75}; /* SEPTA Regional Rail weekday, ESTIMATED post-increase */
-const CHW_ZONE={chw:'Z2',stmartins:'Z2',highland:'Z2',allenlane:'Z2',carpenter:'Z2',upsal:'Z2',
-  tulpe:'Z1',chelten:'Z1',queenlane:'Z1','30rr':'CC',suburban:'CC',jefferson:'CC'};
+const RR_ZONE_FARE={CC:0,Z1:5.25,Z2:5.75,Z3:7.50,Z4:10.00,Z5:12.00}; /* SEPTA RR weekday, ESTIMATED */
+/* Zone assignments for every RR station — ESTIMATED, marked ~ in UI */
+const RR_ZONES={
+  /* Center City — included in any ticket */
+  jefferson:'CC',suburban:'CC','30rr':'CC',
+  /* CHW */
+  chw:'Z2',stmartins:'Z2',highland:'Z2',allenlane:'Z2',carpenter:'Z2',upsal:'Z2',
+  tulpe:'Z1',chelten:'Z1',queenlane:'Z1',
+  /* PAO */
+  univcity:'Z1',overbrook:'Z1',merion:'Z1',narberth_rr:'Z1',wynnewood:'Z1',
+  ardmore_rr:'Z1',haverford:'Z1',brynmawr:'Z2',rosemont:'Z2',villanova:'Z2',
+  radnor:'Z2',stdavids:'Z2',wayne_rr:'Z2',strafford:'Z2',devon:'Z2',berwyn:'Z2',
+  daylesford:'Z2',paoli:'Z2',malvern:'Z3',exton:'Z3',whitford:'Z3',
+  downingtown:'Z4',thorndale:'Z4',
+  /* MED */
+  angora:'Z1',fernwood:'Z1',lansdowne:'Z1',cliftaldan:'Z1',secane:'Z1',
+  primos:'Z1',lester:'Z2',ridleypark:'Z2',chestertc:'Z2',eddystone:'Z2',
+  crumlynne:'Z2',elwyn:'Z3',media:'Z3',glenriddle:'Z3',wawa:'Z3',
+  /* WIL */
+  highlandave:'Z3',claymont:'Z3',wilmington:'Z4',churchmans:'Z4',newark_de:'Z5',
+  /* AIR */
+  eastwick:'Z3',air_ab:'Z3',air_cd:'Z3',air_ef:'Z3',
+  /* CHE */
+  germantown_rr:'Z1',wister:'Z1',tulpe_che:'Z1',chelten_che:'Z1',
+  gravers:'Z2',wyndmoor:'Z2',che:'Z2',
+  /* Shared Reading-side */
+  templu:'Z1',nbroadrr:'Z1',waynejct:'Z1',
+  /* FOX */
+  olney_fox:'Z1',logan_rr:'Z1',lawndale:'Z1',cheltenham:'Z2',ryers:'Z2',foxchase:'Z2',
+  /* LAN */
+  frnrkrr:'Z1',melrosepark:'Z1',elkinspark:'Z1',jenktown:'Z1',glenside:'Z2',
+  oreland:'Z2',ftwashington:'Z2',ambler:'Z2',kulpsville:'Z3',lansdale:'Z3',
+  chalfont:'Z4',newbritian:'Z4',doylestown:'Z4',
+  /* NOR */
+  easyfalls:'Z1',wissahickontc:'Z1',manayunk_rr:'Z1',ivyridge:'Z1',shawmont:'Z2',
+  springmill:'Z2',miquon:'Z2',norristowntc:'Z2',
+  /* WAR */
+  crestmont:'Z2',roslyn:'Z2',ardsley:'Z2',hatboro:'Z2',warminster:'Z3',
+  /* WTR */
+  yardley:'Z4',westtrenton:'Z4',trevose:'Z3',somerton:'Z3',
+  /* TRE */
+  northphila:'Z1',bridesburg:'Z1',holmesburgjct:'Z2',torresdale:'Z2',
+  cornwells:'Z2',eddington:'Z2',croydon:'Z3',bristol:'Z3',levittown:'Z3',
+  tullytown:'Z3',trenton:'Z5',
+  /* CYN */
+  wynnefield_ave:'Z1',narberth_cyn:'Z1',cynwyd:'Z1',
+};
 const PGRP={p1516:'PHL',p1213:'PHL',p910:'PHL',p8:'PHL',pfrank:'PHL',
   pchcam:'CAM',pbway:'CAM',pferry:'FER',pcoll:'MID',pwest:'MID',phadd:'MID',
   pwood:'OUT',pash:'OUT',plind:'OUT'};
@@ -420,9 +646,9 @@ function tripCost(r,prof){
     if(l.mode==='ride'){
       if(l.line==='MFL'||l.line==='BSL'){
         if(!metroPaid){cost+=METRO_FARE;items.push(`SEPTA Metro $${METRO_FARE.toFixed(2)}`);metroPaid=true;}
-      } else if(l.line==='CHW'){
-        const zo=CHW_ZONE[l.from.id]||'CC', zd=CHW_ZONE[(l.to&&l.to.id)||'']||'CC';
-        const f=Math.max(RR_ZONE_FARE[zo],RR_ZONE_FARE[zd])||RR_ZONE_FARE.Z1;
+      } else if(LINES[l.line]?.rr){
+        const zo=RR_ZONES[l.from.id]||'Z1', zd=RR_ZONES[(l.to&&l.to.id)||'']||'Z1';
+        const f=Math.max(RR_ZONE_FARE[zo]||RR_ZONE_FARE.Z1,RR_ZONE_FARE[zd]||RR_ZONE_FARE.Z1);
         cost+=f;items.push(`Regional Rail ~$${f.toFixed(2)}`);est=true;
       } else if(l.line==='PATCO'){
         const f=patcoFare(l.from.id,(l.to&&l.to.id)||l.from.id);
@@ -445,14 +671,18 @@ const map=L.map('map',{zoomControl:true}).setView([39.965,-75.12],11);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
   attribution:'&copy; OpenStreetMap &copy; CARTO',maxZoom:19
 }).addTo(map);
-/* draw network */
+/* draw network — polylines per line, markers deduplicated once per station */
 for(const [ln,ids] of Object.entries(SEQ)){
-  L.polyline(ids.map(id=>[STATIONS[id].lat,STATIONS[id].lng]),{color:LINES[ln].color,weight:3,opacity:.55}).addTo(map);
-  for(const id of ids){
-    const s=STATIONS[id];
-    L.marker([s.lat,s.lng],{icon:L.divIcon({className:'',html:`<div class="stn-ic" style="width:9px;height:9px;background:${LINES[ln].color}"></div>`,iconSize:[9,9],iconAnchor:[4,4]}),keyboard:false})
-      .addTo(map).bindTooltip(`${s.name} — ${s.lines.map(l=>LINES[l].name).join(' / ')}`);
-  }
+  L.polyline(ids.map(id=>[STATIONS[id].lat,STATIONS[id].lng]),
+    {color:LINES[ln].color,weight:LINES[ln].rr?2:3,opacity:LINES[ln].rr?.45:.55}).addTo(map);
+}
+const _drawnStn=new Set();
+for(const [id,s] of Object.entries(STATIONS)){
+  if(_drawnStn.has(id))continue; _drawnStn.add(id);
+  const c=LINES[s.lines[0]]?.color||'#888';
+  const sz=s.lines.length>1?11:9; /* major interchange = bigger dot */
+  L.marker([s.lat,s.lng],{icon:L.divIcon({className:'',html:`<div class="stn-ic" style="width:${sz}px;height:${sz}px;background:${c}"></div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]}),keyboard:false})
+    .addTo(map).bindTooltip(`${s.name} — ${s.lines.map(l=>LINES[l].name).join(' / ')}`);
 }
 for(const dk of DOCKS){
   L.marker([dk.lat,dk.lng],{icon:L.divIcon({className:'',html:'<div class="dock-ic" style="width:8px;height:8px;background:#12a37a"></div>',iconSize:[8,8],iconAnchor:[4,4]}),keyboard:false})
