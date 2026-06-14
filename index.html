@@ -254,6 +254,7 @@ const PRESETS = {
 </script>
 <script>
 /* ================= ROUTING ENGINE ================= */
+const HERE_KEY='xfWS_IKy4DXwF5vv0-fU8S64GYw3l6c-CmMDWj6KYLU';
 const BIKE_MPH=11, WALK_MPH=3.1, CIRCUITY=1.3;
 const WALK_MAX=1.05, BIKE_MAX=6.5, LOCK_MIN=1.5, DOCK_MIN=1.5;
 function hav(a,b){
@@ -565,16 +566,32 @@ function carCard(A,B,itins){
   return `<div class="car-vs" id="carVs"><div class="cv-top"><span class="cv-label">by car</span><span class="cv-time" id="cvTime">${carMin} min</span><span class="cv-cost" id="cvCost">~$${carFuel.toFixed(2)} fuel</span></div>${carDelta(carMin,carFuel)}<div class="cv-note" id="cvNote">routing estimate · no live traffic · fuel $0.21/mi · parking &amp; tolls not included</div></div>`;
 }
 function fetchCarRoute(A,B){
-  fetch(`https://router.project-osrm.org/route/v1/driving/${A.lng},${A.lat};${B.lng},${B.lat}?overview=false`)
+  const url=HERE_KEY
+    ?`https://router.hereapi.com/v8/routes?transportMode=car&origin=${A.lat},${A.lng}&destination=${B.lat},${B.lng}&return=summary&departureTime=now&apikey=${HERE_KEY}`
+    :`https://router.project-osrm.org/route/v1/driving/${A.lng},${A.lat};${B.lng},${B.lat}?overview=false`;
+  fetch(url)
     .then(r=>r.json())
     .then(data=>{
-      if(!data.routes||!data.routes.length||!$('carVs'))return;
-      const min=Math.round(data.routes[0].duration/60);
-      const dist=data.routes[0].distance/1609.34;
+      if(!$('carVs'))return;
+      let min,baseMin,dist;
+      if(HERE_KEY){
+        const s=data.routes[0].sections[0].summary;
+        min=Math.round(s.duration/60);
+        baseMin=Math.round(s.baseDuration/60);
+        dist=s.length/1609.34;
+      } else {
+        if(!data.routes||!data.routes.length)return;
+        min=Math.round(data.routes[0].duration/60);
+        baseMin=min;
+        dist=data.routes[0].distance/1609.34;
+      }
       const fuel=dist*0.21;
-      $('cvTime').textContent=`${min} min`;
+      const trafficAdd=min-baseMin;
+      $('cvTime').innerHTML=trafficAdd>1
+        ?`${min} min <span style="font-size:13px;color:#9a9288">(${baseMin} without traffic)</span>`
+        :`${min} min`;
       $('cvCost').textContent=`~$${fuel.toFixed(2)} fuel`;
-      $('cvNote').textContent=`${dist.toFixed(1)} mi by road · $0.21/mi fuel · no live traffic · parking & tolls not included`;
+      $('cvNote').textContent=`${dist.toFixed(1)} mi · $0.21/mi fuel · live traffic · parking & tolls not included`;
       const d=$('cvDelta');
       if(d)d.outerHTML=carDelta(min,fuel);
     })
