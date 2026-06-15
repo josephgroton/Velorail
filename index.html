@@ -731,7 +731,7 @@ function closeSugg(id){$(id).classList.remove('open');}
 function fetchSuggestions(query,suggId,which){
   const sugg=$(suggId);
   if(query.length<2){closeSugg(suggId);return;}
-  fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&viewbox=-75.4,39.8,-74.9,40.2&bounded=0&countrycodes=us`,{headers:{'Accept-Language':'en'}})
+  fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&viewbox=-75.4,39.8,-74.9,40.2&bounded=1&countrycodes=us`,{headers:{'Accept-Language':'en'}})
     .then(r=>r.json())
     .then(res=>{
       sugg.innerHTML='';
@@ -907,8 +907,8 @@ function card(sc,r,base){
   return `<div class="card" data-sc="${sc.id}"><div class="top"><div class="name">${sc.name}</div>${costChip}${dTxt}<div class="time">${Math.round(r.min)}<span style="font-size:11px;color:var(--dim)"> min</span></div></div><div class="hint">${sc.sub}${tc.items.length?' · '+tc.items.join(' + '):''}</div>${strip}</div>`;
 }
 let selEpoch=0;
-function fetchOsrmBike(from,to,idx,epoch,opts){
-  fetch(`https://router.project-osrm.org/route/v1/bike/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`)
+function fetchOsrmRoute(profile,from,to,idx,epoch,opts){
+  fetch(`https://router.project-osrm.org/route/v1/${profile}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`)
     .then(r=>r.json())
     .then(data=>{
       if(selEpoch!==epoch||!data.routes?.length||!routeLayers[idx])return;
@@ -945,9 +945,11 @@ function select(scId){
       const c=l.line?LINES[l.line].color:(l.mode==='bike'?'#0d8f6a':'#6b6258');
       const opts={color:c,weight:isSel?5:2,opacity:isSel?0.95:0.15,dashArray:l.mode==='ride'?null:(l.mode==='bike'?'8 6':'2 7')};
       routeLayers.push(L.polyline(pts,opts).addTo(map));
-      /* replace straight-line bike legs with OSRM-routed paths for selected scenario */
-      if(isSel&&l.mode==='bike'&&!l.indego&&l.from.lat&&l.to.lat)
-        fetchOsrmBike(l.from,l.to,routeLayers.length-1,epoch,opts);
+      /* replace straight-line bike/walk legs with OSRM-routed paths for selected scenario */
+      if(isSel&&l.from.lat&&l.to.lat){
+        if(l.mode==='bike'&&!l.indego)fetchOsrmRoute('bike',l.from,l.to,routeLayers.length-1,epoch,opts);
+        if(l.mode==='walk')fetchOsrmRoute('foot',l.from,l.to,routeLayers.length-1,epoch,opts);
+      }
     }
   }
   if(selPts.length>1)map.fitBounds(selPts,{padding:[40,40]});
