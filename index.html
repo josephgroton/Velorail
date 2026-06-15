@@ -1039,7 +1039,7 @@ function select(scId){
       routeLayers.push(L.polyline(pts,opts).addTo(map));
       /* replace straight-line bike/walk legs with OSRM-routed paths for selected scenario */
       if(isSel&&l.from.lat&&l.to.lat){
-        if(l.mode==='bike'&&!l.indego)fetchOsrmRoute('bike',l.from,l.to,routeLayers.length-1,epoch,opts);
+        if(l.mode==='bike')fetchOsrmRoute('bike',l.from,l.to,routeLayers.length-1,epoch,opts);
         if(l.mode==='walk')fetchOsrmRoute('foot',l.from,l.to,routeLayers.length-1,epoch,opts);
       }
     }
