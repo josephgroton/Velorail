@@ -123,12 +123,17 @@
       <div class="row">
         <select id="preset" aria-label="Example trips">
           <option value="">Example trips…</option>
-          <option value="mtairy-collingswood">Mt. Airy → Collingswood, NJ</option>
-          <option value="pbreeze-haddonfield">Point Breeze → Haddonfield, NJ</option>
-          <option value="fishtown-ucity">Fishtown → University City</option>
-          <option value="bella-fernrock">Bella Vista → Fern Rock</option>
-          <option value="grad-frankford">Graduate Hospital → Frankford</option>
-          <option value="epassyunk-flourtown">East Passyunk → Flourtown, PA</option>
+          <optgroup label="Philadelphia metro">
+            <option value="mtairy-collingswood">Mt. Airy → Collingswood, NJ</option>
+            <option value="pbreeze-haddonfield">Point Breeze → Haddonfield, NJ</option>
+            <option value="fishtown-ucity">Fishtown → University City</option>
+            <option value="bella-fernrock">Bella Vista → Fern Rock</option>
+            <option value="grad-frankford">Graduate Hospital → Frankford</option>
+            <option value="epassyunk-flourtown">East Passyunk → Flourtown, PA</option>
+          </optgroup>
+          <optgroup label="Intercity">
+            <option value="mifflin-westpoint">Mifflin St → West Point, NY [3 agencies + ferry]</option>
+          </optgroup>
         </select>
         <button id="clear">Clear</button>
       </div>
@@ -452,7 +457,30 @@ const PRESETS = {
   'fishtown-ucity':{a:[39.9730,-75.1290,'Fishtown'], b:[39.9522,-75.1990,'University City (40th & Spruce)']},
   'bella-fernrock':{a:[39.9395,-75.1560,'Bella Vista'], b:[40.0420,-75.1330,'Fern Rock']},
   'grad-frankford':{a:[39.9400,-75.1810,'Graduate Hospital'], b:[40.0210,-75.0820,'Frankford']},
-  'epassyunk-flourtown':{a:[39.9285,-75.1625,'East Passyunk Ave'], b:[40.1005,-75.2135,'Flourtown, PA']}
+  'epassyunk-flourtown':{a:[39.9285,-75.1625,'East Passyunk Ave'], b:[40.1005,-75.2135,'Flourtown, PA']},
+  'mifflin-westpoint':{a:[39.9248,-75.1740,'1212 Mifflin St, Philadelphia'], b:[41.3920,-73.9565,'West Point, NY'], intercity:'westpoint'}
+};
+const WESTPOINT_TRIP={
+  id:'westpoint', title:'Mifflin St → West Point, NY', sub:'bike + SEPTA + NJT + Metro-North + ferry \xb7 all fares estimated',
+  legs:[
+    {mode:'bike',  from:{lat:39.9248,lng:-75.1740,name:'1212 Mifflin St'},        to:{lat:39.9566,lng:-75.1819,name:'30th Street Station'},    min:12, label:'Bike to 30th Street Station'},
+    {mode:'wait',  min:15, label:'~15 min wait (Trenton Line every 30 min off-peak)'},
+    {mode:'ride',  from:{lat:39.9566,lng:-75.1819,name:'30th Street Station'},     to:{lat:40.2170,lng:-74.7600,name:'Trenton'},                 min:45, label:'Trenton Line', agency:'SEPTA',        color:'#004D40', bikeRule:'off-peak only'},
+    {mode:'wait',  min:15, label:'~15 min transfer at Trenton'},
+    {mode:'ride',  from:{lat:40.2170,lng:-74.7600,name:'Trenton'},                 to:{lat:40.7506,lng:-73.9971,name:'New York Penn Station'},   min:65, label:'Northeast Corridor', agency:'NJ Transit', color:'#003f87', bikeRule:'off-peak only'},
+    {mode:'walk',  from:{lat:40.7506,lng:-73.9971,name:'New York Penn Station'},   to:{lat:40.7527,lng:-73.9772,name:'Grand Central Terminal'},  min:15, label:'Walk with bike to Grand Central (~0.8 mi along 42nd St)'},
+    {mode:'wait',  min:20, label:'~20 min wait at Grand Central'},
+    {mode:'ride',  from:{lat:40.7527,lng:-73.9772,name:'Grand Central Terminal'},  to:{lat:41.3847,lng:-73.9432,name:'Garrison, NY'},            min:82, label:'Hudson Line', agency:'Metro-North',    color:'#009B77', bikeRule:'off-peak only \xb7 $5 one-time bike permit'},
+    {mode:'bike',  from:{lat:41.3847,lng:-73.9432,name:'Garrison, NY'},            to:{lat:41.3855,lng:-73.9448,name:'Garrison ferry dock'},     min:5,  label:'Bike to ferry dock'},
+    {mode:'ferry', from:{lat:41.3855,lng:-73.9448,name:'Garrison ferry dock'},     to:{lat:41.3918,lng:-73.9562,name:'West Point dock'},         min:15, label:'Ferry across Hudson — seasonal, confirm before you go', color:'#1565C0'},
+    {mode:'bike',  from:{lat:41.3918,lng:-73.9562,name:'West Point dock'},         to:{lat:41.3920,lng:-73.9565,name:'West Point'},              min:5,  label:'Bike to destination'},
+  ],
+  fares:[
+    {label:'SEPTA Trenton Line (Z5)', cost:12.00},
+    {label:'NJ Transit NEC',          cost:15.00},
+    {label:'Metro-North Hudson Line', cost:17.00},
+    {label:'Ferry',                   cost:5.00},
+  ]
 };
 </script>
 <script>
@@ -693,7 +721,7 @@ for(const bw of BIKEWAYS){
   L.polyline(bw.coords,{color:'#2d7a3a',weight:2.5,opacity:0.55,dashArray:'5 5',interactive:true})
     .addTo(map).bindTooltip(bw.name,{sticky:true});
 }
-let A=null,B=null,nextIsA=true,mA=null,mB=null,routeLayers=[],itins={},selected=null;
+let A=null,B=null,nextIsA=true,mA=null,mB=null,routeLayers=[],itins={},selected=null,intercityTrip=null;
 const $=id=>document.getElementById(id);
 function abIcon(t){return L.divIcon({className:'',html:`<div class="ab-ic" style="width:24px;height:24px">${t}</div>`,iconSize:[24,24],iconAnchor:[12,12]});}
 function setPoint(which,lat,lng,label){
@@ -702,19 +730,22 @@ function setPoint(which,lat,lng,label){
   else{B=p;if(mB)mB.remove();mB=L.marker([lat,lng],{icon:abIcon('B')}).addTo(map);$('bInput').value=p.name;$('bInput').classList.remove('err');}
   compute();
 }
-map.on('click',e=>{setPoint(nextIsA?'A':'B',e.latlng.lat,e.latlng.lng);nextIsA=!nextIsA;});
+map.on('click',e=>{intercityTrip=null;setPoint(nextIsA?'A':'B',e.latlng.lat,e.latlng.lng);nextIsA=!nextIsA;});
 $('preset').addEventListener('change',e=>{
-  const p=PRESETS[e.target.value];if(!p)return;
+  const k=e.target.value;
+  const p=PRESETS[k];if(!p)return;
+  intercityTrip=p.intercity==='westpoint'?WESTPOINT_TRIP:null;
   setPoint('A',p.a[0],p.a[1],p.a[2]);setPoint('B',p.b[0],p.b[1],p.b[2]);nextIsA=true;
 });
 $('clear').addEventListener('click',()=>{
-  A=B=null;nextIsA=true;if(mA)mA.remove();if(mB)mB.remove();mA=mB=null;
+  A=B=null;nextIsA=true;intercityTrip=null;if(mA)mA.remove();if(mB)mB.remove();mA=mB=null;
   $('aInput').value='';$('bInput').value='';$('aInput').classList.remove('err');$('bInput').classList.remove('err');
   $('preset').value='';clearRoutes();
   $('results').innerHTML='<div class="hint" style="padding-top:4px">Pick an example trip or type addresses above.</div>';
 });
 function geocode(query,which){
   if(!query.trim())return;
+  intercityTrip=null;
   const inp=$(which==='A'?'aInput':'bInput');
   inp.classList.remove('err');
   fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&viewbox=-75.4,39.8,-74.9,40.2&bounded=0&countrycodes=us`,{headers:{'Accept-Language':'en'}})
@@ -858,6 +889,12 @@ function compute(){
   readProfile();
   const peak=$('peak').checked;
   itins={};clearRoutes();
+  if(intercityTrip){
+    $('results').innerHTML=intercityCard(intercityTrip);
+    document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>selectIntercity(intercityTrip)));
+    selectIntercity(intercityTrip);
+    return;
+  }
   let html='';
   const base=route('baseline',peak,A,B);
   for(const sc of ACTIVE){
@@ -905,6 +942,52 @@ function card(sc,r,base){
   const tc=tripCost(r,PROF);
   const costChip=`<span class="cost" title="${tc.items.join(' + ')||'no fares'}">${tc.cost===0?'$0':(tc.est?'~':'')+'$'+tc.cost.toFixed(2)}</span>`;
   return `<div class="card" data-sc="${sc.id}"><div class="top"><div class="name">${sc.name}</div>${costChip}${dTxt}<div class="time">${Math.round(r.min)}<span style="font-size:11px;color:var(--dim)"> min</span></div></div><div class="hint">${sc.sub}${tc.items.length?' · '+tc.items.join(' + '):''}</div>${strip}</div>`;
+}
+function intercityCard(trip){
+  const peak=$('peak').checked;
+  const totalMin=trip.legs.reduce((s,l)=>s+l.min,0);
+  const totalFare=trip.fares.reduce((s,f)=>s+f.cost,0);
+  const fareTitle=trip.fares.map(f=>`~$${f.cost.toFixed(2)} ${f.label}`).join(' + ');
+  const peakWarn=peak?`<div style="color:var(--bad);font-size:11px;margin-top:4px">Peak hours on: all three rail agencies bar bikes during peak. This trip requires off-peak travel.</div>`:'';
+  let strip='<div class="strip">';
+  strip+=`<div class="endrow"><div class="rail"><div class="dot" style="border-color:var(--text)"></div></div><div class="body">Start</div></div>`;
+  for(const l of trip.legs){
+    if(l.mode==='wait'){
+      strip+=`<div class="leg"><div class="rail"><div class="seg dashed" style="--c:var(--faint)"></div><div class="dot" style="border-color:var(--faint)"></div></div><div class="body" style="font-size:11px;color:var(--faint)">${l.label}</div><div class="min" style="color:var(--faint)">${l.min}m</div></div>`;
+      continue;
+    }
+    const c=l.mode==='ride'?l.color:(l.mode==='ferry'?l.color:(l.mode==='bike'?'var(--bike)':'var(--walk)'));
+    const dashClass=l.mode==='ride'?'solid':'dashed';
+    let body='';
+    if(l.mode==='ride'){
+      body=`<b>${l.agency}</b>: ${l.label}<br><span style="font-size:11px;color:var(--faint)">bike rule: ${l.bikeRule}</span>`;
+    } else if(l.mode==='ferry'){
+      const [main,note]=l.label.split(' — ');
+      body=`<b>Ferry</b>: ${main}${note?`<br><span style="font-size:11px;color:var(--faint)">${note}</span>`:''}`;
+    } else {
+      body=l.label;
+    }
+    strip+=`<div class="leg"><div class="rail"><div class="seg ${dashClass}" style="--c:${c}"></div><div class="dot" style="border-color:${c}"></div></div><div class="body">${body}</div><div class="min">${Math.max(1,Math.round(l.min))}m</div></div>`;
+  }
+  strip+=`<div class="endrow"><div class="rail"></div><div class="body">Arrive West Point</div></div></div>`;
+  return `<div class="card sel" data-sc="intercity"><div class="top"><div class="name">${trip.title}</div><span class="cost" title="${fareTitle}">~$${totalFare.toFixed(2)}</span><div class="time">${Math.round(totalMin)}<span style="font-size:11px;color:var(--dim)"> min</span></div></div><div class="hint">${trip.sub}${peakWarn}</div>${strip}</div>`;
+}
+function selectIntercity(trip){
+  selEpoch++;const epoch=selEpoch;
+  selected='intercity';clearRoutes();
+  document.querySelectorAll('.card').forEach(c=>c.classList.toggle('sel',c.dataset.sc==='intercity'));
+  const allPts=[];
+  for(const l of trip.legs){
+    if(!l.from||!l.to)continue;
+    const pts=[[l.from.lat,l.from.lng],[l.to.lat,l.to.lng]];
+    const c=l.mode==='ride'?l.color:(l.mode==='ferry'?l.color:(l.mode==='bike'?'#0d8f6a':'#6b6258'));
+    const opts={color:c,weight:4,opacity:0.9,dashArray:l.mode==='ride'?null:(l.mode==='bike'?'8 6':'2 7')};
+    allPts.push(...pts);
+    routeLayers.push(L.polyline(pts,opts).addTo(map));
+    if(l.mode==='bike')fetchOsrmRoute('bike',l.from,l.to,routeLayers.length-1,epoch,opts);
+    if(l.mode==='walk')fetchOsrmRoute('foot',l.from,l.to,routeLayers.length-1,epoch,opts);
+  }
+  if(allPts.length>1)map.fitBounds(allPts,{padding:[50,50]});
 }
 let selEpoch=0;
 function fetchOsrmRoute(profile,from,to,idx,epoch,opts){
