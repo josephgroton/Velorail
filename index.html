@@ -472,9 +472,9 @@ const PHILLY_DATA={
   ]
 };
 /* ============ BOSTON MBTA DATA ============ */
-(()=>{
-  const bL={};const bSt={};const bst=(id,nm,la,ln)=>bSt[id]={id,name:nm,lat:la,lng:ln,lines:[]};
-  /* Lines */
+try{(()=>{
+  const bL={},bSt={},bst=(id,nm,la,ln)=>bSt[id]={id,name:nm,lat:la,lng:ln,lines:[]};
+  /* Rail lines */
   bL.RL ={name:'Red Line (Ashmont)',   color:'#DA291C',headway:10,bikes:'offpeak',metro:true};
   bL.RLB={name:'Red Line (Braintree)', color:'#DA291C',headway:20,bikes:'offpeak',metro:true};
   bL.OL ={name:'Orange Line',          color:'#ED8B00',headway:12,bikes:'offpeak',metro:true};
@@ -483,74 +483,92 @@ const PHILLY_DATA={
   bL.GLC={name:'Green Line C',         color:'#00843D',headway:12,bikes:'never',  metro:true};
   bL.GLD={name:'Green Line D',         color:'#00843D',headway:12,bikes:'never',  metro:true};
   bL.GLE={name:'Green Line E',         color:'#00843D',headway:15,bikes:'never',  metro:true};
+  /* Bus lines — front-mounted racks, bikes allowed always, 2 per bus */
+  const bBus={headway:12,bikes:'always',metro:true,bus:true,color:'#888888'};
+  bL.B1  ={...bBus,name:'Route 1 (Harvard–Nubian via Mass Ave)'};
+  bL.B9  ={...bBus,name:'Route 9 (City Point–Copley)',headway:15};
+  bL.B15 ={...bBus,name:'Route 15 (Ruggles–Fields Corner)'};
+  bL.B22 ={...bBus,name:'Route 22 (Ashmont–Ruggles)',headway:15};
+  bL.B28 ={...bBus,name:'Route 28 (Mattapan–Ruggles)'};
+  bL.B39 ={...bBus,name:'Route 39 (Forest Hills–Back Bay)',headway:10};
+  bL.B57 ={...bBus,name:'Route 57 (Watertown–Kenmore)'};
+  bL.B66 ={...bBus,name:'Route 66 (Harvard–Nubian via Brookline)',headway:10};
+  bL.B111={...bBus,name:'Route 111 (Chelsea–South Station)'};
+  bL.BCT1={...bBus,name:'CT1 (Central Sq–South Station)'};
   /* Red Line trunk */
-  bst('alewife','Alewife',          42.3952,-71.1421); bst('davis','Davis',              42.3967,-71.1226);
-  bst('porter','Porter',            42.3885,-71.1191); bst('harvard','Harvard',           42.3736,-71.1190);
-  bst('central','Central',          42.3655,-71.1036); bst('kendall','Kendall/MIT',       42.3624,-71.0862);
-  bst('charles','Charles/MGH',      42.3615,-71.0707); bst('park_st','Park St',           42.3564,-71.0622);
-  bst('dtx','Downtown Crossing',    42.3554,-71.0601); bst('south_stn','South Station',   42.3521,-71.0552);
-  bst('broadway','Broadway',        42.3426,-71.0566); bst('andrew','Andrew',             42.3302,-71.0574);
-  bst('jfk','JFK/UMass',            42.3201,-71.0524);
-  /* RL Ashmont branch */
-  bst('savin_hill','Savin Hill',    42.3100,-71.0535); bst('fields_corner','Fields Corner',42.2999,-71.0608);
-  bst('shawmut','Shawmut',          42.2929,-71.0655); bst('ashmont','Ashmont',           42.2843,-71.0640);
-  /* RL Braintree branch */
-  bst('nth_quincy','North Quincy',  42.2753,-71.0293); bst('wollaston','Wollaston',       42.2667,-71.0202);
-  bst('quincy_ctr','Quincy Center', 42.2512,-71.0052); bst('quincy_adams','Quincy Adams', 42.2330,-71.0071);
-  bst('braintree','Braintree',      42.2071,-71.0014);
+  bst('alewife','Alewife',         42.3952,-71.1421); bst('davis','Davis',              42.3967,-71.1226);
+  bst('porter','Porter',           42.3885,-71.1191); bst('harvard','Harvard',           42.3736,-71.1190);
+  bst('central','Central',         42.3655,-71.1036); bst('kendall','Kendall/MIT',       42.3624,-71.0862);
+  bst('charles','Charles/MGH',     42.3615,-71.0707); bst('park_st','Park St',           42.3564,-71.0622);
+  bst('dtx','Downtown Crossing',   42.3554,-71.0601); bst('south_stn','South Station',   42.3521,-71.0552);
+  bst('broadway','Broadway',       42.3426,-71.0566); bst('andrew','Andrew',             42.3302,-71.0574);
+  bst('jfk','JFK/UMass',           42.3201,-71.0524);
+  /* RL Ashmont */
+  bst('savin_hill','Savin Hill',   42.3100,-71.0535); bst('fields_corner','Fields Corner',42.2999,-71.0608);
+  bst('shawmut','Shawmut',         42.2929,-71.0655); bst('ashmont','Ashmont',           42.2843,-71.0640);
+  /* RL Braintree */
+  bst('nth_quincy','North Quincy', 42.2753,-71.0293); bst('wollaston','Wollaston',       42.2667,-71.0202);
+  bst('quincy_ctr','Quincy Center',42.2512,-71.0052); bst('quincy_adams','Quincy Adams', 42.2330,-71.0071);
+  bst('braintree','Braintree',     42.2071,-71.0014);
   /* Orange Line */
-  bst('oak_grove','Oak Grove',      42.4367,-71.0706); bst('malden_ctr','Malden Center',  42.4265,-71.0742);
-  bst('wellington','Wellington',    42.4025,-71.0771); bst('sullivan','Sullivan Square',   42.3836,-71.0763);
-  bst('comm_coll','Community College',42.3736,-71.0696);bst('nth_stn','North Station',    42.3659,-71.0625);
-  bst('haymarket','Haymarket',      42.3632,-71.0579); bst('state','State',               42.3588,-71.0576);
-  bst('chinatown','Chinatown',      42.3521,-71.0630); bst('tufts_med','Tufts Medical',   42.3482,-71.0636);
-  bst('back_bay','Back Bay',        42.3469,-71.0780); bst('mass_ave_ol','Mass Ave',       42.3414,-71.0836);
-  bst('ruggles','Ruggles',          42.3366,-71.0890); bst('rox_crossing','Roxbury Crossing',42.3313,-71.0950);
-  bst('jackson_sq','Jackson Square',42.3233,-71.1005); bst('stony_brook','Stony Brook',   42.3175,-71.1052);
-  bst('green_st','Green Street',    42.3103,-71.1082); bst('forest_hills','Forest Hills', 42.3006,-71.1135);
+  bst('oak_grove','Oak Grove',     42.4367,-71.0706); bst('malden_ctr','Malden Center',  42.4265,-71.0742);
+  bst('wellington','Wellington',   42.4025,-71.0771); bst('sullivan','Sullivan Square',   42.3836,-71.0763);
+  bst('comm_coll','Community College',42.3736,-71.0696);bst('nth_stn','North Station',   42.3659,-71.0625);
+  bst('haymarket','Haymarket',     42.3632,-71.0579); bst('state','State',               42.3588,-71.0576);
+  bst('chinatown','Chinatown',     42.3521,-71.0630); bst('tufts_med','Tufts Medical',   42.3482,-71.0636);
+  bst('back_bay','Back Bay',       42.3469,-71.0780); bst('mass_ave_ol','Mass Ave (OL)', 42.3414,-71.0836);
+  bst('ruggles','Ruggles',         42.3366,-71.0890); bst('rox_crossing','Roxbury Crossing',42.3313,-71.0950);
+  bst('jackson_sq','Jackson Square',42.3233,-71.1005);bst('stony_brook','Stony Brook',   42.3175,-71.1052);
+  bst('green_st','Green Street',   42.3103,-71.1082); bst('forest_hills','Forest Hills', 42.3006,-71.1135);
   /* Blue Line */
-  bst('bowdoin','Bowdoin',          42.3611,-71.0637); bst('govt_ctr','Government Center',42.3598,-71.0589);
-  bst('aquarium','Aquarium',        42.3594,-71.0518); bst('maverick','Maverick',         42.3701,-71.0396);
-  bst('airport_bl','Airport',       42.3745,-71.0204); bst('wood_island','Wood Island',   42.3790,-71.0096);
-  bst('orient_hts','Orient Heights',42.3860,-70.9998); bst('suffolk_downs','Suffolk Downs',42.3909,-70.9962);
-  bst('beachmont','Beachmont',      42.3970,-70.9921); bst('revere_bch','Revere Beach',   42.4081,-70.9921);
-  bst('wonderland','Wonderland',    42.4139,-70.9916);
-  /* Green Line trunk (shared) */
-  bst('lechmere','Lechmere',        42.3697,-71.0760); bst('science_pk','Science Park',   42.3663,-71.0736);
-  bst('boylston','Boylston',        42.3522,-71.0617); bst('arlington','Arlington',       42.3510,-71.0701);
-  bst('copley','Copley',            42.3497,-71.0773); bst('hynes','Hynes',               42.3486,-71.0857);
-  bst('kenmore','Kenmore',          42.3487,-71.0965);
-  /* GL-B surface (Kenmore → Boston College along Commonwealth Ave) */
-  bst('blandford','Blandford St',   42.3490,-71.1015); bst('bu_east','BU East',           42.3494,-71.1073);
-  bst('bu_central','BU Central',    42.3500,-71.1146); bst('bu_west','BU West',           42.3500,-71.1226);
-  bst('stpaul_b','St Paul St (B)',  42.3500,-71.1276); bst('pleasant_st','Pleasant St',   42.3500,-71.1352);
-  bst('babcock','Babcock St',       42.3498,-71.1404); bst('packards','Packards Corner',  42.3498,-71.1452);
-  bst('harvard_ave','Harvard Ave',  42.3497,-71.1526); bst('griggs','Griggs St',          42.3494,-71.1570);
-  bst('allston_st','Allston St',    42.3494,-71.1618); bst('warren_gl','Warren St',       42.3497,-71.1663);
-  bst('washington_gl','Washington St',42.3497,-71.1716);bst('sutherland','Sutherland Rd', 42.3497,-71.1765);
-  bst('chiswick','Chiswick Rd',     42.3492,-71.1806); bst('chestnut_hill_b','Chestnut Hill Ave',42.3487,-71.1858);
-  bst('south_st_b','South St',      42.3424,-71.1936); bst('bos_college','Boston College',42.3354,-71.1685);
-  /* GL-C surface (Kenmore → Cleveland Circle along Beacon St) */
-  bst('stpaul_c','St Paul St (C)',  42.3420,-71.1024); bst('coolidge','Coolidge Corner',  42.3390,-71.1211);
-  bst('summit_ave','Summit Ave',    42.3375,-71.1319); bst('brandon_hall','Brandon Hall', 42.3360,-71.1371);
-  bst('fairbanks','Fairbanks St',   42.3356,-71.1421); bst('washington_sq','Washington Sq',42.3347,-71.1487);
-  bst('tappan','Tappan St',         42.3342,-71.1538); bst('dean_rd','Dean Rd',           42.3336,-71.1582);
-  bst('englewood','Englewood Ave',  42.3330,-71.1631); bst('cleveland_cir','Cleveland Circle',42.3326,-71.1679);
-  /* GL-D (Kenmore → Riverside, Newton) */
-  bst('fenway_d','Fenway',          42.3434,-71.0994); bst('longwood_d','Longwood',       42.3408,-71.1102);
+  bst('bowdoin','Bowdoin',         42.3611,-71.0637); bst('govt_ctr','Government Center',42.3598,-71.0589);
+  bst('aquarium','Aquarium',       42.3594,-71.0518); bst('maverick','Maverick',         42.3701,-71.0396);
+  bst('airport_bl','Airport',      42.3745,-71.0204); bst('wood_island','Wood Island',   42.3790,-71.0096);
+  bst('orient_hts','Orient Heights',42.3860,-70.9998);bst('suffolk_downs','Suffolk Downs',42.3909,-70.9962);
+  bst('beachmont','Beachmont',     42.3970,-70.9921); bst('revere_bch','Revere Beach',   42.4081,-70.9921);
+  bst('wonderland','Wonderland',   42.4139,-70.9916);
+  /* Green Line trunk */
+  bst('lechmere','Lechmere',       42.3697,-71.0760); bst('science_pk','Science Park',   42.3663,-71.0736);
+  bst('boylston','Boylston',       42.3522,-71.0617); bst('arlington','Arlington',       42.3510,-71.0701);
+  bst('copley','Copley',           42.3497,-71.0773); bst('hynes','Hynes',               42.3486,-71.0857);
+  bst('kenmore','Kenmore',         42.3487,-71.0965);
+  /* GL-B (Kenmore → Boston College) */
+  bst('blandford','Blandford St',  42.3490,-71.1015); bst('bu_east','BU East',           42.3494,-71.1073);
+  bst('bu_central','BU Central',   42.3500,-71.1146); bst('bu_west','BU West',           42.3500,-71.1226);
+  bst('stpaul_b','St Paul St (B)', 42.3500,-71.1276); bst('pleasant_st','Pleasant St',   42.3500,-71.1352);
+  bst('babcock','Babcock St',      42.3498,-71.1404); bst('packards','Packards Corner',  42.3498,-71.1452);
+  bst('harvard_ave','Harvard Ave', 42.3497,-71.1526); bst('griggs','Griggs St',          42.3494,-71.1570);
+  bst('allston_st','Allston St',   42.3494,-71.1618); bst('warren_gl','Warren St',       42.3497,-71.1663);
+  bst('washington_gl','Washington St (B)',42.3497,-71.1716);bst('sutherland','Sutherland Rd',42.3497,-71.1765);
+  bst('chiswick','Chiswick Rd',    42.3492,-71.1806); bst('chestnut_hill_b','Chestnut Hill Ave',42.3487,-71.1858);
+  bst('south_st_b','South St (B)', 42.3424,-71.1936); bst('bos_college','Boston College',42.3354,-71.1685);
+  /* GL-C (Kenmore → Cleveland Circle) */
+  bst('stpaul_c','St Paul St (C)', 42.3420,-71.1024); bst('coolidge','Coolidge Corner',  42.3390,-71.1211);
+  bst('summit_ave','Summit Ave',   42.3375,-71.1319); bst('brandon_hall','Brandon Hall', 42.3360,-71.1371);
+  bst('fairbanks','Fairbanks St',  42.3356,-71.1421); bst('washington_sq','Washington Sq',42.3347,-71.1487);
+  bst('tappan','Tappan St',        42.3342,-71.1538); bst('dean_rd','Dean Rd',           42.3336,-71.1582);
+  bst('englewood','Englewood Ave', 42.3330,-71.1631); bst('cleveland_cir','Cleveland Circle',42.3326,-71.1679);
+  /* GL-D (Kenmore → Riverside) */
+  bst('fenway_d','Fenway',         42.3434,-71.0994); bst('longwood_d','Longwood',       42.3408,-71.1102);
   bst('brook_vill','Brookline Village',42.3325,-71.1221);bst('brook_hills','Brookline Hills',42.3293,-71.1298);
-  bst('beaconsfield','Beaconsfield',42.3265,-71.1423); bst('reservoir','Reservoir',       42.3255,-71.1502);
-  bst('chestnut_d','Chestnut Hill', 42.3249,-71.1597); bst('newton_ctr','Newton Centre',  42.3297,-71.1900);
-  bst('newton_hlds','Newton Highlands',42.3233,-71.2033);bst('eliot','Eliot',             42.3205,-71.2124);
-  bst('waban','Waban',              42.3280,-71.2300); bst('woodland_d','Woodland',        42.3305,-71.2432);
-  bst('riverside','Riverside',      42.3370,-71.2558);
-  /* GL-E surface (Heath St → Copley along Huntington Ave) */
-  bst('heath_st','Heath St',        42.3226,-71.1139); bst('back_o_hill','Back of the Hill',42.3252,-71.1124);
-  bst('riverway','Riverway',        42.3274,-71.1114); bst('mission_pk','Mission Park',   42.3302,-71.1106);
-  bst('fenwood_rd','Fenwood Rd',    42.3325,-71.1091); bst('brigham_cir','Brigham Circle',42.3343,-71.1069);
+  bst('beaconsfield','Beaconsfield',42.3265,-71.1423);bst('reservoir','Reservoir',       42.3255,-71.1502);
+  bst('chestnut_d','Chestnut Hill',42.3249,-71.1597); bst('newton_ctr','Newton Centre',  42.3297,-71.1900);
+  bst('newton_hlds','Newton Highlands',42.3233,-71.2033);bst('eliot','Eliot',            42.3205,-71.2124);
+  bst('waban','Waban',             42.3280,-71.2300); bst('woodland_d','Woodland',        42.3305,-71.2432);
+  bst('riverside','Riverside',     42.3370,-71.2558);
+  /* GL-E (Heath St → Copley via Huntington Ave) */
+  bst('heath_st','Heath St',       42.3226,-71.1139); bst('back_o_hill','Back of the Hill',42.3252,-71.1124);
+  bst('riverway','Riverway',       42.3274,-71.1114); bst('mission_pk','Mission Park',   42.3302,-71.1106);
+  bst('fenwood_rd','Fenwood Rd',   42.3325,-71.1091); bst('brigham_cir','Brigham Circle',42.3343,-71.1069);
   bst('longwood_med','Longwood Medical',42.3368,-71.1037);bst('mfa','Museum of Fine Arts',42.3361,-71.0980);
-  bst('northeastern','Northeastern',42.3385,-71.0930); bst('symphony','Symphony',         42.3430,-71.0870);
-  bst('prudential','Prudential',    42.3476,-71.0842);
+  bst('northeastern','Northeastern',42.3385,-71.0930);bst('symphony','Symphony',         42.3430,-71.0870);
+  bst('prudential','Prudential',   42.3476,-71.0842);
+  /* Bus-only stops */
+  bst('nubian_sq','Nubian Square (Dudley)',42.3314,-71.0855);
+  bst('mattapan_sq','Mattapan Square',    42.2679,-71.0928);
+  bst('city_point','City Point (S. Boston)',42.3370,-71.0324);
+  bst('watertown_sq','Watertown Square',  42.3665,-71.1848);
+  bst('chelsea_bus','Chelsea',            42.3912,-71.0328);
   /* Sequences */
   const bSEQ={
     RL: ['alewife','davis','porter','harvard','central','kendall','charles','park_st','dtx','south_stn','broadway','andrew','jfk','savin_hill','fields_corner','shawmut','ashmont'],
@@ -561,40 +579,60 @@ const PHILLY_DATA={
     GLC:['cleveland_cir','englewood','dean_rd','tappan','washington_sq','fairbanks','brandon_hall','summit_ave','coolidge','stpaul_c','kenmore','hynes','copley','arlington','boylston','park_st','govt_ctr','haymarket','nth_stn','science_pk','lechmere'],
     GLD:['riverside','woodland_d','waban','eliot','newton_hlds','newton_ctr','chestnut_d','reservoir','beaconsfield','brook_hills','brook_vill','longwood_d','fenway_d','kenmore','hynes','copley','arlington','boylston','park_st','govt_ctr','haymarket','nth_stn','science_pk','lechmere'],
     GLE:['heath_st','back_o_hill','riverway','mission_pk','fenwood_rd','brigham_cir','longwood_med','mfa','northeastern','symphony','prudential','copley','arlington','boylston','park_st','govt_ctr','haymarket','nth_stn','science_pk','lechmere'],
+    /* Bus routes (key stops only — shares subway station IDs where routes intersect) */
+    B1:  ['harvard','hynes','nubian_sq'],
+    B9:  ['city_point','copley'],
+    B15: ['ruggles','nubian_sq','fields_corner'],
+    B22: ['ashmont','nubian_sq','ruggles'],
+    B28: ['mattapan_sq','ashmont','nubian_sq','ruggles'],
+    B39: ['forest_hills','longwood_med','northeastern','back_bay'],
+    B57: ['watertown_sq','harvard_ave','kenmore'],
+    B66: ['harvard','coolidge','brook_vill','ruggles','nubian_sq'],
+    B111:['chelsea_bus','maverick','south_stn'],
+    BCT1:['central','kendall','south_stn'],
   };
-  for(const [ln,ids] of Object.entries(bSEQ)) ids.forEach(id=>{if(!bSt[id].lines.includes(ln))bSt[id].lines.push(ln);});
+  for(const [ln,ids] of Object.entries(bSEQ)) ids.forEach(id=>{if(bSt[id])bSt[id].lines.push(ln);});
   const bSEGMIN={
     RL: {default:2,'park_st|charles':3,'andrew|jfk':3,'jfk|savin_hill':3},
     RLB:{default:3,'jfk|nth_quincy':4,'quincy_ctr|quincy_adams':3,'quincy_adams|braintree':4},
     OL: {default:2,'oak_grove|malden_ctr':3,'malden_ctr|wellington':3,'wellington|sullivan':3},
-    BL: {default:2,'aquarium|maverick':3,'maverick|airport_bl':3,'airport_bl|wood_island':2},
-    GLB:{default:2,'park_st|govt_ctr':3,'govt_ctr|haymarket':2,'haymarket|nth_stn':2,'nth_stn|science_pk':2},
+    BL: {default:2,'aquarium|maverick':3,'maverick|airport_bl':3},
+    GLB:{default:2,'park_st|govt_ctr':3,'govt_ctr|haymarket':2,'haymarket|nth_stn':2},
     GLC:{default:2,'park_st|govt_ctr':3},
     GLD:{default:3,'fenway_d|kenmore':2,'brook_vill|longwood_d':3,'park_st|govt_ctr':3},
-    GLE:{default:2,'park_st|govt_ctr':3,'longwood_med|mfa':2},
+    GLE:{default:2,'park_st|govt_ctr':3},
+    B1: {default:12,'harvard|hynes':15},
+    B9: {default:30},
+    B15:{default:10},
+    B22:{default:12},
+    B28:{default:12,'mattapan_sq|ashmont':15},
+    B39:{default:10,'forest_hills|longwood_med':15},
+    B57:{default:10,'watertown_sq|harvard_ave':20},
+    B66:{default:10,'harvard|coolidge':12},
+    B111:{default:12,'chelsea_bus|maverick':15},
+    BCT1:{default:7},
   };
   const bPRESETS={
-    'harvard-southstn':{a:[42.3736,-71.1190,'Harvard Square'],   b:[42.3521,-71.0552,'South Station'],          label:'Harvard Sq → South Station'},
-    'davis-fenway':    {a:[42.3967,-71.1226,'Davis Square, Somerville'], b:[42.3434,-71.0994,'Fenway Park area'],label:'Davis Sq → Fenway'},
-    'northstn-backbay':{a:[42.3659,-71.0625,'North Station'],   b:[42.3469,-71.0780,'Back Bay Station'],         label:'North Station → Back Bay'},
-    'airport-dtx':     {a:[42.3745,-71.0204,'Airport (Blue Line)'], b:[42.3554,-71.0601,'Downtown Crossing'],   label:'Airport → Downtown Crossing'},
-    'foresthills-dtx': {a:[42.3006,-71.1135,'Forest Hills'],    b:[42.3554,-71.0601,'Downtown Crossing'],        label:'Forest Hills → Downtown Crossing'},
-    'kendall-longwood': {a:[42.3624,-71.0862,'Kendall/MIT'],    b:[42.3368,-71.1037,'Longwood Medical Area'],    label:'Kendall/MIT → Longwood Medical'},
-    'riverside-downtown':{a:[42.3370,-71.2558,'Riverside (Newton)'], b:[42.3554,-71.0601,'Downtown Crossing'],  label:'Riverside → Downtown Crossing'},
+    'jp-fenway':       {a:[42.3233,-71.1005,'Jamaica Plain (Jackson Square)'],b:[42.3434,-71.0994,'Fenway'],                       label:'Jamaica Plain → Fenway'},
+    'davis-longwood':  {a:[42.3967,-71.1226,'Davis Square'],                  b:[42.3368,-71.1037,'Longwood Medical Area'],         label:'Davis Sq → Longwood Medical'},
+    'southie-harvard': {a:[42.3370,-71.0324,'South Boston (City Point)'],     b:[42.3736,-71.1190,'Harvard Square'],                label:'South Boston → Harvard Sq'},
+    'airport-dtx':     {a:[42.3745,-71.0204,'Airport (Blue Line)'],           b:[42.3554,-71.0601,'Downtown Crossing'],             label:'Airport → Downtown Crossing'},
+    'ashmont-harvard': {a:[42.2843,-71.0640,'Ashmont'],                       b:[42.3736,-71.1190,'Harvard Square'],                label:'Ashmont → Harvard Sq'},
+    'riverside-dtx':   {a:[42.3370,-71.2558,'Riverside (Newton)'],            b:[42.3554,-71.0601,'Downtown Crossing'],             label:'Riverside → Downtown Crossing'},
+    'kendall-longwood':{a:[42.3624,-71.0862,'Kendall/MIT'],                   b:[42.3368,-71.1037,'Longwood Medical Area'],         label:'Kendall/MIT → Longwood Medical'},
   };
   window.BOSTON_DATA={
-    LINES:bL, STATIONS:bSt, SEQ:bSEQ, SEGMIN:bSEGMIN,
-    TRANSFERS:[], DOCKS:[], BIKEWAYS:[], PRESETS:bPRESETS,
-    METRO_FARE:2.40, FARE_NAME:'MBTA subway',
-    FARE_NOTE:'MBTA subway $2.40/boarding (CharlieCard). Commuter Rail and Bluebikes not yet modeled.',
-    viewbox:'-71.35,42.15,-70.85,42.55', center:[42.360,-71.062], zoom:13,
+    LINES:bL,STATIONS:bSt,SEQ:bSEQ,SEGMIN:bSEGMIN,
+    TRANSFERS:[],DOCKS:[],BIKEWAYS:[],PRESETS:bPRESETS,
+    METRO_FARE:2.40,FARE_NAME:'MBTA',
+    viewbox:'-71.35,42.15,-70.85,42.55',center:[42.360,-71.062],zoom:13,
     desc:'Multimodal router that treats the bike as a first-class transit leg. Compares four ways to make the same trip across the MBTA.',
-    peakLabel:'Peak hours (Mon–Fri 7–10a & 4–7p) — MBTA bars bikes on Red, Orange, and Blue lines during peak. Green Line does not allow bikes at any time.',
-    networkHint:'Type to search — pick a suggestion or press Enter. You can also click the map. Network: Red, Orange, Blue, and all four Green Line branches (B/C/D/E).',
-    presetGroups:[{label:'Boston metro', keys:['harvard-southstn','davis-fenway','northstn-backbay','airport-dtx','foresthills-dtx','kendall-longwood','riverside-downtown']}]
+    peakLabel:'Peak hours (Mon–Fri 7–10a & 4–7p) — MBTA bars bikes on Red, Orange, and Blue lines during peak. Green Line never allows bikes. Buses always allow bikes (front rack, 2 max).',
+    networkHint:'Type to search — pick a suggestion or press Enter. Network: Red, Orange, Blue, all four Green Line branches, and 10 key bus routes (bikes always allowed on buses).',
+    presetGroups:[{label:'Boston metro',keys:['jp-fenway','davis-longwood','southie-harvard','airport-dtx','ashmont-harvard','riverside-dtx','kendall-longwood']}]
   };
-  window.PHILLY_DATA=PHILLY_DATA;
-})();
+})();}catch(e){console.error('Boston data build failed:',e);}
+window.PHILLY_DATA=PHILLY_DATA;
 const WESTPOINT_TRIP={
   id:'westpoint', title:'Mifflin St → West Point, NY', sub:'bike + SEPTA + NJT + Metro-North + ferry \xb7 all fares estimated',
   legs:[
@@ -861,7 +899,8 @@ function drawNetwork(){
 }
 drawNetwork();
 function loadCity(key){
-  const cd=key==='boston'?window.BOSTON_DATA:window.PHILLY_DATA;
+  const cd=key==='boston'?window.BOSTON_DATA:(window.PHILLY_DATA||PHILLY_DATA);
+  if(!cd){console.error('No city data for',key);return;}
   LINES=cd.LINES; STATIONS=cd.STATIONS; SEQ=cd.SEQ; SEGMIN=cd.SEGMIN;
   TRANSFERS=cd.TRANSFERS; DOCKS=cd.DOCKS; BIKEWAYS=cd.BIKEWAYS; PRESETS=cd.PRESETS;
   METRO_FARE=cd.METRO_FARE; METRO_FARE_NAME=cd.FARE_NAME;
@@ -893,8 +932,19 @@ function loadCity(key){
     gi('results').innerHTML='<div class="hint" style="padding-top:4px">Pick an example trip or type addresses above.</div>';
   }
 }
-/* initial preset population for Philly */
-loadCity('philly');
+/* populate Philly presets inline on init — avoids dependency on window.PHILLY_DATA */
+(function initPhillyUI(){
+  const sel=document.getElementById('preset');
+  if(!sel)return;
+  sel.innerHTML='<option value="">Example trips…</option>';
+  const pg=window.PHILLY_DATA?.presetGroups||PHILLY_DATA.presetGroups;
+  const ps=window.PHILLY_DATA?.PRESETS||PHILLY_DATA.PRESETS;
+  for(const g of pg){
+    const og=document.createElement('optgroup');og.label=g.label;
+    g.keys.forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=ps[k]?.label||k;og.appendChild(o);});
+    sel.appendChild(og);
+  }
+})();
 let A=null,B=null,nextIsA=true,mA=null,mB=null,routeLayers=[],itins={},selected=null,intercityTrip=null;
 const $=id=>document.getElementById(id);
 function abIcon(t){return L.divIcon({className:'',html:`<div class="ab-ic" style="width:24px;height:24px">${t}</div>`,iconSize:[24,24],iconAnchor:[12,12]});}
