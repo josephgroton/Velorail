@@ -712,31 +712,62 @@ try{(()=>{
   nst('g_smith9','Smith-9th Sts',   40.6737,-74.0034); nst('g_4av','4th Ave (G)',        40.6700,-74.0010);
   nst('g_7av','7th Ave (G)',        40.6667,-73.9968); nst('g_15th','15th St-Prospect Pk',40.6607,-73.9929);
   nst('g_church','Church Ave',      40.6508,-73.9787);
+  /* Metro-North commuter rail — bikes off-peak only (no weekday AM inbound / PM outbound) */
+  nL.MNH={name:'Metro-North Hudson Line',color:'#0A5F95',headway:45,bikes:'offpeak',metro:false,rr:true,fareLabel:'Metro-North'};
+  nL.MNA={name:'Metro-North Harlem Line',color:'#7B3F98',headway:45,bikes:'offpeak',metro:false,rr:true,fareLabel:'Metro-North'};
+  /* Grand Central Terminal — shared MN terminus */
+  nst('gct','Grand Central Terminal',40.7527,-73.9772);
+  /* Hudson Line — key stops (coords approximate) */
+  nst('mnh_yonkers','Yonkers',40.9348,-73.8988);  nst('mnh_hastings','Hastings-on-Hudson',40.9884,-73.8793);
+  nst('mnh_tarrytown','Tarrytown',41.0612,-73.8636); nst('mnh_ossining','Ossining',41.1620,-73.8627);
+  nst('mnh_crotharmon','Croton-Harmon',41.1904,-73.8879); nst('mnh_peekskill','Peekskill',41.2932,-73.9215);
+  nst('mnh_coldspring','Cold Spring',41.4147,-73.9551); nst('mnh_beacon','Beacon',41.5050,-73.9785);
+  nst('mnh_pghkps','Poughkeepsie',41.7069,-73.9399);
+  /* Harlem Line — key stops */
+  nst('mna_125','Harlem-125th St',40.8049,-73.9378);
+  nst('mna_whiteplains','White Plains',41.0349,-73.7629); nst('mna_nwhiteplains','North White Plains',41.0609,-73.7751);
+  nst('mna_pleasantville','Pleasantville',41.1332,-73.7937); nst('mna_chappaqua','Chappaqua',41.1609,-73.7593);
+  nst('mna_katonah','Katonah',41.2557,-73.6813); nst('mna_brewster','Southeast (Brewster)',41.4155,-73.5960);
   const nSEQ={
     L:['l_8av','l_6av','l_unionsq','l_3av','l_1av','l_bedford','l_lorimer','l_graham','l_grand','l_montrose','l_morgan','l_jefferson','l_dekalb','l_myrtle','halsey','gates','kos','bway_jct'],
     J:['j_fulton','j_canal','j_bowery','j_essex','j_marcy','j_hewes','j_lorimer','j_flushing','j_myrtle','kos','gates','halsey','j_chauncey','bway_jct'],
     G:['g_court','g_greenpt','g_nassau','g_metro','g_bway','g_flushing','g_myrtle','g_bednost','g_classon','g_clinton','g_fulton','g_bergen','g_smith9','g_4av','g_7av','g_15th','g_church'],
+    /* segment times calibrated to actual Metro-North timetables (off-peak, ESTIMATED) */
+    MNH:['gct','mnh_yonkers','mnh_hastings','mnh_tarrytown','mnh_ossining','mnh_crotharmon','mnh_peekskill','mnh_coldspring','mnh_beacon','mnh_pghkps'],
+    MNA:['gct','mna_125','mna_whiteplains','mna_nwhiteplains','mna_pleasantville','mna_chappaqua','mna_katonah','mna_brewster'],
   };
   for(const [ln,ids] of Object.entries(nSEQ)) ids.forEach(id=>{if(nSt[id])nSt[id].lines.push(ln);});
   const nSEGMIN={
     L:{default:2,'l_1av|l_bedford':3},
     J:{default:2.5,'j_essex|j_marcy':3},
     G:{default:2.5},
+    /* Hudson Line — cumulative from GCT matches ~108 min to Poughkeepsie */
+    MNH:{default:10,'gct|mnh_yonkers':25,'mnh_yonkers|mnh_hastings':7,'mnh_hastings|mnh_tarrytown':13,'mnh_tarrytown|mnh_ossining':8,'mnh_ossining|mnh_crotharmon':7,'mnh_crotharmon|mnh_peekskill':10,'mnh_peekskill|mnh_coldspring':10,'mnh_coldspring|mnh_beacon':8,'mnh_beacon|mnh_pghkps':20},
+    /* Harlem Line — cumulative from GCT matches ~103 min to Brewster */
+    MNA:{default:8,'gct|mna_125':9,'mna_125|mna_whiteplains':43,'mna_whiteplains|mna_nwhiteplains':6,'mna_nwhiteplains|mna_pleasantville':7,'mna_pleasantville|mna_chappaqua':5,'mna_chappaqua|mna_katonah':15,'mna_katonah|mna_brewster':18},
   };
   const nPRESETS={
-    'bushwick-les':    {a:[40.7038,-73.9193,'Bushwick (DeKalb Ave)'],   b:[40.7182,-73.9874,'Lower East Side (Essex St)'], label:'Bushwick → Lower East Side'},
-    'wburg-midtown':   {a:[40.7172,-73.9565,'Williamsburg (Bedford Ave)'],b:[40.7351,-73.9903,'14th St / Union Square'],  label:'Williamsburg → 14th St/Union Sq'},
-    'greenpt-carrollgdns':{a:[40.7315,-73.9520,'Greenpoint Ave'],       b:[40.6858,-73.9901,'Carroll Gardens (Bergen St)'],label:'Greenpoint → Carroll Gardens'},
+    'bushwick-les':         {a:[40.7038,-73.9193,'Bushwick (DeKalb Ave)'],    b:[40.7182,-73.9874,'Lower East Side (Essex St)'],      label:'Bushwick → Lower East Side'},
+    'wburg-midtown':        {a:[40.7172,-73.9565,'Williamsburg (Bedford Ave)'],b:[40.7351,-73.9903,'14th St / Union Square'],          label:'Williamsburg → 14th St/Union Sq'},
+    'greenpt-carrollgdns':  {a:[40.7315,-73.9520,'Greenpoint Ave'],            b:[40.6858,-73.9901,'Carroll Gardens (Bergen St)'],     label:'Greenpoint → Carroll Gardens'},
+    /* Metro-North — best-case bike+transit showcase trips */
+    'midtown-tarrytown':    {a:[40.7484,-73.9877,'Chelsea, Manhattan'],         b:[41.0612,-73.8636,'Tarrytown (Rockefeller State Park)'],label:'Chelsea → Tarrytown (Hudson Line)'},
+    'midtown-beacon':       {a:[40.7527,-73.9772,'Midtown East (near GCT)'],   b:[41.5050,-73.9785,'Beacon, NY (Hudson Valley)'],       label:'Midtown → Beacon (Hudson Line)'},
+    'uptown-coldspring':    {a:[40.8049,-73.9378,'Harlem (125th St area)'],    b:[41.4147,-73.9551,'Cold Spring (Hudson Highlands)'],   label:'Harlem → Cold Spring (Hudson Line)'},
+    'harlem-brewster':      {a:[40.8049,-73.9378,'Harlem (125th St area)'],    b:[41.4155,-73.5960,'Southeast / Brewster, NY'],         label:'Harlem → Brewster (Harlem Line)'},
   };
   window.NYC_DATA={
     LINES:nL,STATIONS:nSt,SEQ:nSEQ,SEGMIN:nSEGMIN,
     TRANSFERS:[],DOCKS:[],BIKEWAYS:[],PRESETS:nPRESETS,
     METRO_FARE:2.90,FARE_NAME:'MTA subway',
-    viewbox:'-74.05,40.60,-73.85,40.80',center:[40.710,-73.960],zoom:12,
-    desc:'Multimodal router that treats the bike as a first-class transit leg. NYC subway allows bikes 24/7 — no peak restrictions.',
-    peakLabel:'NYC subway allows bikes 24/7 — no peak hour restrictions. Peak toggle only affects car comparison.',
-    networkHint:'Type to search — pick a suggestion or press Enter. Network: L train, J/Z train, G train. Bikes allowed on all NYC subway trains at all times.',
-    presetGroups:[{label:'NYC',keys:['bushwick-les','wburg-midtown','greenpt-carrollgdns']}]
+    viewbox:'-74.10,40.60,-73.50,41.80',center:[40.900,-73.900],zoom:10,
+    desc:'Multimodal router that treats the bike as a first-class transit leg. NYC subway allows bikes 24/7; Metro-North allows bikes off-peak only.',
+    peakLabel:'Metro-North bars bikes during peak hours (weekday inbound AM / outbound PM). NYC subway allows bikes 24/7.',
+    networkHint:'Type to search — pick a suggestion or press Enter. Network: L, J/Z, G subway · Metro-North Hudson + Harlem lines. Metro-North: bikes off-peak only.',
+    presetGroups:[
+      {label:'NYC Subway',keys:['bushwick-les','wburg-midtown','greenpt-carrollgdns']},
+      {label:'Metro-North',keys:['midtown-tarrytown','midtown-beacon','uptown-coldspring','harlem-brewster']}
+    ]
   };
 })();}catch(e){console.error('NYC data build failed:',e);}
 </script>
@@ -870,7 +901,9 @@ function mergeLegs(legs){
 }
 /* ================= FARES ================= */
 let METRO_FARE=2.90, METRO_FARE_NAME='SEPTA Metro'; /* overridden by loadCity() */
-const RR_ZONE_FARE={CC:0,Z1:5.25,Z2:5.75,Z3:7.50,Z4:10.00,Z5:12.00}; /* SEPTA RR weekday, ESTIMATED */
+const RR_ZONE_FARE={CC:0,Z1:5.25,Z2:5.75,Z3:7.50,Z4:10.00,Z5:12.00, /* SEPTA RR weekday, ESTIMATED */
+  /* Metro-North off-peak one-way, ESTIMATED (mta.info) */
+  MN0:0,MN1:8.75,MN2:10.75,MN3:13.50,MN4:15.50,MN5:17.75,MN6:20.00,MN7:22.50};
 /* Zone assignments for every RR station — ESTIMATED, marked ~ in UI */
 const RR_ZONES={
   /* Center City — included in any ticket */
@@ -916,6 +949,14 @@ const RR_ZONES={
   tullytown:'Z3',trenton:'Z5',
   /* CYN */
   wynnefield_ave:'Z1',narberth_cyn:'Z1',cynwyd:'Z1',
+  /* Metro-North Hudson Line — ESTIMATED zones */
+  gct:'MN0',
+  mnh_yonkers:'MN2',mnh_hastings:'MN3',mnh_tarrytown:'MN3',
+  mnh_ossining:'MN4',mnh_crotharmon:'MN4',mnh_peekskill:'MN5',
+  mnh_coldspring:'MN6',mnh_beacon:'MN6',mnh_pghkps:'MN7',
+  /* Metro-North Harlem Line — ESTIMATED zones */
+  mna_125:'MN1',mna_whiteplains:'MN4',mna_nwhiteplains:'MN4',
+  mna_pleasantville:'MN5',mna_chappaqua:'MN5',mna_katonah:'MN6',mna_brewster:'MN7',
 };
 const PGRP={p1516:'PHL',p1213:'PHL',p910:'PHL',p8:'PHL',pfrank:'PHL',
   pchcam:'CAM',pbway:'CAM',pferry:'FER',pcoll:'MID',pwest:'MID',phadd:'MID',
@@ -936,7 +977,8 @@ function tripCost(r,prof){
       } else if(LINES[l.line]?.rr){
         const zo=RR_ZONES[l.from.id]||'Z1', zd=RR_ZONES[(l.to&&l.to.id)||'']||'Z1';
         const f=Math.max(RR_ZONE_FARE[zo]||RR_ZONE_FARE.Z1,RR_ZONE_FARE[zd]||RR_ZONE_FARE.Z1);
-        cost+=f;items.push(`Regional Rail ~$${f.toFixed(2)}`);est=true;
+        const lbl=LINES[l.line]?.fareLabel||'Regional Rail';
+        cost+=f;items.push(`${lbl} ~$${f.toFixed(2)}`);est=true;
       } else if(l.line==='PATCO'){
         const f=patcoFare(l.from.id,(l.to&&l.to.id)||l.from.id);
         cost+=f;items.push(`PATCO $${f.toFixed(2)}`);
