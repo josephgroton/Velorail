@@ -1000,28 +1000,32 @@ const map=L.map('map',{zoomControl:true}).setView([39.965,-75.12],11);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
   attribution:'&copy; OpenStreetMap &copy; CARTO',maxZoom:19
 }).addTo(map);
+map.createPane('network');
+map.getPane('network').style.zIndex='350'; /* below route polylines (overlayPane=400) */
 let networkLayer=L.layerGroup().addTo(map);
 let CITY_VIEWBOX='-75.4,39.8,-74.9,40.2';
+function dimmNetwork(){const p=map.getPane('network');if(p)p.style.opacity='0.07';}
+function restoreNetwork(){const p=map.getPane('network');if(p)p.style.opacity='';}
 function drawNetwork(){
   networkLayer.clearLayers();
   for(const [ln,ids] of Object.entries(SEQ)){
     L.polyline(ids.map(id=>[STATIONS[id].lat,STATIONS[id].lng]),
-      {color:LINES[ln].color,weight:LINES[ln].rr?2:3,opacity:LINES[ln].rr?.45:.55}).addTo(networkLayer);
+      {color:LINES[ln].color,weight:LINES[ln].rr?2:3,opacity:LINES[ln].rr?.45:.55,pane:'network'}).addTo(networkLayer);
   }
   const drawn=new Set();
   for(const [id,s] of Object.entries(STATIONS)){
     if(drawn.has(id))continue; drawn.add(id);
     const c=LINES[s.lines[0]]?.color||'#888';
     const sz=s.lines.length>1?11:9;
-    L.marker([s.lat,s.lng],{icon:L.divIcon({className:'',html:`<div class="stn-ic" style="width:${sz}px;height:${sz}px;background:${c}"></div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]}),keyboard:false})
+    L.marker([s.lat,s.lng],{icon:L.divIcon({className:'',html:`<div class="stn-ic" style="width:${sz}px;height:${sz}px;background:${c}"></div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]}),keyboard:false,pane:'network'})
       .addTo(networkLayer).bindTooltip(`${s.name} — ${s.lines.map(l=>LINES[l]?.name||l).join(' / ')}`);
   }
   for(const dk of DOCKS){
-    L.marker([dk.lat,dk.lng],{icon:L.divIcon({className:'',html:'<div class="dock-ic" style="width:8px;height:8px;background:#12a37a"></div>',iconSize:[8,8],iconAnchor:[4,4]}),keyboard:false})
+    L.marker([dk.lat,dk.lng],{icon:L.divIcon({className:'',html:'<div class="dock-ic" style="width:8px;height:8px;background:#12a37a"></div>',iconSize:[8,8],iconAnchor:[4,4]}),keyboard:false,pane:'network'})
       .addTo(networkLayer).bindTooltip(dk.name);
   }
   for(const bw of BIKEWAYS){
-    L.polyline(bw.coords,{color:'#2d7a3a',weight:2.5,opacity:0.55,dashArray:'5 5',interactive:true})
+    L.polyline(bw.coords,{color:'#2d7a3a',weight:2.5,opacity:0.55,dashArray:'5 5',interactive:true,pane:'network'})
       .addTo(networkLayer).bindTooltip(bw.name,{sticky:true});
   }
 }
@@ -1177,8 +1181,9 @@ $('profHead').addEventListener('click',()=>{
 for(const id of ['hasBike','carryOK','indegoPlan'])$(id).addEventListener('change',()=>{compute();setTimeout(collapseProf,350);});
 $('bikeMax').addEventListener('change',compute);
 function clearRoutes(){routeLayers.forEach(l=>l.remove());routeLayers=[];hideDetail();}
-function hideDetail(){const p=document.getElementById('routeDetail');if(p)p.classList.remove('open');}
+function hideDetail(){const p=document.getElementById('routeDetail');if(p)p.classList.remove('open');restoreNetwork();}
 function showDetail(scId){
+  dimmNetwork();
   const p=document.getElementById('routeDetail');if(!p)return;
   const r=itins[scId];const sc=SCENARIOS.find(s=>s.id===scId);
   if(!r||!sc){hideDetail();return;}
