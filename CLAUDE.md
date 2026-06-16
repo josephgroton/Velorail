@@ -77,15 +77,21 @@ CHW 35 min (average-headway model, NOT real timetables).
    genuinely different ROUTES, not just different price tags. Implementation: add fare
    increments to edge weights in Dijkstra (board edges carry the fare; metro free-transfer
    needs a small fare-state bit or post-hoc correction).
-2. **More network**: key bus routes, MFL/BSL trolleys, NJ Transit River Line, real Indego
+2. **Arrive-by / schedule planning**: Let users input a target arrival time. The app
+   back-calculates departure windows and flags whether the trip is feasible with/without
+   a bike under current SEPTA/MBTA timetables. This is a planning tool, not real-time —
+   compute against published schedules, not live departures. GTFS feeds required.
+3. **Better LTS street weighting**: Route bike legs along low-stress streets (LTS 1–2)
+   even when slightly slower. Use OSM cycleway/lane/surface tags + LTS classification.
+   Mainstream apps route bikes like cars; this is the core differentiator on the street level.
+4. **More network**: key bus routes, MFL/BSL trolleys, NJ Transit River Line, real Indego
    dock list from the GBFS feed (https://gbfs.bcycle.com/bcycle_indego/gbfs.json — verify URL).
-3. **Production path**: OpenTripPlanner 2 self-hosted with real GTFS (SEPTA, NJ Transit,
+   Boston: add Bluebikes, Silver Line, Commuter Rail.
+5. **Production path**: OpenTripPlanner 2 self-hosted with real GTFS (SEPTA, NJ Transit,
    PATCO publishes GTFS — see ridepatco.org "Developers (GTFS)") + OSM extract.
    OTP handles bike+transit and bikeshare natively; the custom work is the cost model
    (per-line bike-aboard penalties by time of day, bike-stress street weighting) and this UI.
    Target: VPS with 8–16 GB RAM (~$40–80/mo).
-4. **Bike-stress routing**: prefer low-stress streets to the station even when slightly
-   slower (LTS data / OSM cycleway tags). Mainstream apps route bikes like cars; don't.
 
 ## Conventions
 - Keep the prototype a single self-contained index.html until OTP migration — it must

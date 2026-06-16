@@ -117,23 +117,19 @@
   <div id="side">
     <header>
       <h1>Spoke <span class="amp">&amp;</span> Rail</h1>
-      <p>Multimodal router that treats the bike as a first-class transit leg. Compares four ways to make the same trip across SEPTA + PATCO.</p>
+      <p id="appDesc">Multimodal router that treats the bike as a first-class transit leg. Compares four ways to make the same trip across SEPTA + PATCO.</p>
     </header>
     <div id="controls">
+      <div class="row" style="margin-bottom:6px">
+        <label class="ptitle" style="white-space:nowrap">City</label>
+        <select id="citySelect" style="flex:1">
+          <option value="philly">Philadelphia (SEPTA + PATCO)</option>
+          <option value="boston">Boston (MBTA)</option>
+        </select>
+      </div>
       <div class="row">
         <select id="preset" aria-label="Example trips">
           <option value="">Example trips…</option>
-          <optgroup label="Philadelphia metro">
-            <option value="mtairy-collingswood">Mt. Airy → Collingswood, NJ</option>
-            <option value="pbreeze-haddonfield">Point Breeze → Haddonfield, NJ</option>
-            <option value="fishtown-ucity">Fishtown → University City</option>
-            <option value="bella-fernrock">Bella Vista → Fern Rock</option>
-            <option value="grad-frankford">Graduate Hospital → Frankford</option>
-            <option value="epassyunk-flourtown">East Passyunk → Flourtown, PA</option>
-          </optgroup>
-          <optgroup label="Intercity">
-            <option value="mifflin-westpoint">Mifflin St → West Point, NY [3 agencies + ferry]</option>
-          </optgroup>
         </select>
         <button id="clear">Clear</button>
       </div>
@@ -166,8 +162,8 @@
           </label>
         </div>
       </div>
-      <label class="pt"><input type="checkbox" id="peak"> Peak hours (weekday 6–9a inbound / 3–6p outbound) — SEPTA bars bikes on inbound trains AM and outbound trains PM; PATCO always allows bikes</label>
-      <div class="hint">Type to search — pick a suggestion or press Enter. You can also click the map. Network: all SEPTA Regional Rail lines, MFL, BSL, PATCO, surface trolleys, and sample Indego docks.</div>
+      <label class="pt"><input type="checkbox" id="peak"> <span id="peakLabel">Peak hours (weekday 6–9a inbound / 3–6p outbound) — SEPTA bars bikes on inbound trains AM and outbound trains PM; PATCO always allows bikes</span></label>
+      <div class="hint" id="networkHint">Type to search — pick a suggestion or press Enter. You can also click the map. Network: all SEPTA Regional Rail lines, MFL, BSL, PATCO, surface trolleys, and sample Indego docks.</div>
     </div>
     <div id="results"><div class="hint" style="padding-top:4px">Pick an example trip or set two points on the map.</div></div>
     <footer>Prototype. Schedules are modeled as average headways, not live GTFS; station coordinates approximate; bike/walk legs use straight-line distance × 1.3 street factor (bike 11&nbsp;mph, walk 3.1&nbsp;mph).</footer>
@@ -177,9 +173,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 /* ================= NETWORK DATA ================= */
-const LINES = {
-  MFL:  {name:'Market–Frankford Line',  color:'#1c66b8', headway:6,  bikes:'offpeak'},
-  BSL:  {name:'Broad Street Line',      color:'#e06a10', headway:8,  bikes:'offpeak'},
+let LINES = {
+  MFL:  {name:'Market–Frankford Line',  color:'#1c66b8', headway:6,  bikes:'offpeak', metro:true},
+  BSL:  {name:'Broad Street Line',      color:'#e06a10', headway:8,  bikes:'offpeak', metro:true},
   CHW:  {name:'Chestnut Hill West',     color:'#3d6832', headway:35, bikes:'offpeak', rr:true},
   PATCO:{name:'PATCO Speedline',        color:'#c22828', headway:12, bikes:'always'},
   /* SEPTA Regional Rail — PRR-side */
@@ -204,9 +200,9 @@ const LINES = {
   T36:  {name:'Route 36 (Elmwood Ave)',            color:'#2E7D32', headway:10, bikes:'offpeak'},
 };
 /* st(id,name,lat,lng) — order within each line array is track order */
-const STATIONS = {};
+let STATIONS = {};
 function st(id,name,lat,lng){STATIONS[id]={id,name,lat,lng,lines:[]};return id;}
-const SEQ = {
+let SEQ = {
   MFL:[
     st('69th','69th St TC',39.9626,-75.2576), st('52nd','52nd St',39.9572,-75.2261),
     st('46th','46th St',39.9545,-75.2128),   st('40th','40th St',39.9559,-75.2016),
@@ -388,7 +384,7 @@ const SEQ = {
 };
 for(const [ln,ids] of Object.entries(SEQ)) ids.forEach(id=>STATIONS[id].lines.push(ln));
 /* per-line minutes between consecutive stations (default 2) */
-const SEGMIN = {
+let SEGMIN = {
   MFL:{default:2,'alleg|fftc':4}, BSL:{default:2,'cecil|erie':3,'erie|olney':3},
   CHW:{default:2,'queenlane|30rr':9,'30rr|suburban':4,'suburban|jefferson':3},
   PATCO:{default:2,'pfrank|pchcam':4,'pbway|pferry':3,'pferry|pcoll':3,'pwest|phadd':2,'phadd|pwood':4,'pwood|pash':2,'pash|plind':3},
@@ -408,7 +404,7 @@ const SEGMIN = {
   T10:{default:2}, T11:{default:2}, T13:{default:2}, T34:{default:2}, T36:{default:2}
 };
 /* explicit walking transfers between distinct stations, minutes */
-const TRANSFERS = [
+let TRANSFERS = [
   ['15mfl','cityhall',2], ['13mfl','p1213',3], ['8mfl','p8',1],
   ['walnut','p1516',3],  ['walnut','p1213',4],
   ['30rr','30mfl',3],    ['suburban','cityhall',3], ['suburban','15mfl',3],
@@ -422,7 +418,7 @@ const TRANSFERS = [
   ['tcc','34th',4],       ['tcc','40th',3]
 ];
 /* Indego docks — Philadelphia only (no Camden-side docks, by design of the real system) */
-const DOCKS = [
+let DOCKS = [
   ['d_ritt','Indego: 18th & Walnut',39.9495,-75.1710], ['d_chall','Indego: 15th & Market',39.9526,-75.1652],
   ['d_11pine','Indego: 11th & Pine',39.9442,-75.1590], ['d_2mkt','Indego: 2nd & Market',39.9500,-75.1436],
   ['d_nolibs','Indego: 2nd & Girard',39.9697,-75.1402],['d_pass','Indego: Broad & Passyunk',39.9286,-75.1684],
@@ -432,7 +428,7 @@ const DOCKS = [
   ['d_sgb','Indego: Broad & Spring Garden',39.9634,-75.1614]
 ].map(([id,name,lat,lng])=>({id,name,lat,lng}));
 /* Major regional bike trails — drawn as a permanent map layer */
-const BIKEWAYS = [
+let BIKEWAYS = [
   {name:'Schuylkill River Trail', coords:[
     [39.9283,-75.1878],[39.9362,-75.1860],[39.9420,-75.1851],[39.9467,-75.1838],
     [39.9538,-75.1820],[39.9558,-75.1817],[39.9615,-75.1803],[39.9650,-75.1780],
@@ -452,15 +448,153 @@ const BIKEWAYS = [
     [40.0195,-75.2025],[40.0158,-75.1998]
   ]}
 ];
-const PRESETS = {
-  'mtairy-collingswood':{a:[40.0589,-75.1920,'Mt. Airy (Allens Lane area)'], b:[39.9180,-75.0710,'Collingswood, NJ']},
-  'pbreeze-haddonfield':{a:[39.9330,-75.1850,'Point Breeze'], b:[39.8990,-75.0350,'Haddonfield, NJ']},
-  'fishtown-ucity':{a:[39.9730,-75.1290,'Fishtown'], b:[39.9522,-75.1990,'University City (40th & Spruce)']},
-  'bella-fernrock':{a:[39.9395,-75.1560,'Bella Vista'], b:[40.0420,-75.1330,'Fern Rock']},
-  'grad-frankford':{a:[39.9400,-75.1810,'Graduate Hospital'], b:[40.0210,-75.0820,'Frankford']},
-  'epassyunk-flourtown':{a:[39.9285,-75.1625,'East Passyunk Ave'], b:[40.1005,-75.2135,'Flourtown, PA']},
-  'mifflin-westpoint':{a:[39.9248,-75.1740,'1212 Mifflin St, Philadelphia'], b:[41.3920,-73.9565,'West Point, NY'], intercity:'westpoint'}
+let PRESETS = {
+  'mtairy-collingswood':{a:[40.0589,-75.1920,'Mt. Airy (Allens Lane area)'], b:[39.9180,-75.0710,'Collingswood, NJ'], label:'Mt. Airy → Collingswood, NJ'},
+  'pbreeze-haddonfield':{a:[39.9330,-75.1850,'Point Breeze'], b:[39.8990,-75.0350,'Haddonfield, NJ'], label:'Point Breeze → Haddonfield, NJ'},
+  'fishtown-ucity':{a:[39.9730,-75.1290,'Fishtown'], b:[39.9522,-75.1990,'University City (40th & Spruce)'], label:'Fishtown → University City'},
+  'bella-fernrock':{a:[39.9395,-75.1560,'Bella Vista'], b:[40.0420,-75.1330,'Fern Rock'], label:'Bella Vista → Fern Rock'},
+  'grad-frankford':{a:[39.9400,-75.1810,'Graduate Hospital'], b:[40.0210,-75.0820,'Frankford'], label:'Graduate Hospital → Frankford'},
+  'epassyunk-flourtown':{a:[39.9285,-75.1625,'East Passyunk Ave'], b:[40.1005,-75.2135,'Flourtown, PA'], label:'East Passyunk → Flourtown, PA'},
+  'mifflin-westpoint':{a:[39.9248,-75.1740,'1212 Mifflin St, Philadelphia'], b:[41.3920,-73.9565,'West Point, NY'], intercity:'westpoint', label:'Mifflin St → West Point, NY [3 agencies + ferry]', group:'Intercity'}
 };
+/* snapshot Philly data before any city switching */
+const PHILLY_DATA={
+  LINES,STATIONS,SEQ,SEGMIN,TRANSFERS,DOCKS,BIKEWAYS,PRESETS,
+  METRO_FARE:2.90, FARE_NAME:'SEPTA Metro',
+  FARE_NOTE:'PATCO fares exact; SEPTA Metro $2.90 incl. free transfers; Regional Rail zone fares are estimates',
+  viewbox:'-75.4,39.8,-74.9,40.2', center:[39.952,-75.165], zoom:13,
+  desc:'Multimodal router that treats the bike as a first-class transit leg. Compares four ways to make the same trip across SEPTA + PATCO.',
+  peakLabel:'Peak hours (weekday 6–9a inbound / 3–6p outbound) — SEPTA bars bikes on inbound trains AM and outbound trains PM; PATCO always allows bikes',
+  networkHint:'Type to search — pick a suggestion or press Enter. You can also click the map. Network: all SEPTA Regional Rail lines, MFL, BSL, PATCO, surface trolleys, and sample Indego docks.',
+  presetGroups:[
+    {label:'Philadelphia metro', keys:['mtairy-collingswood','pbreeze-haddonfield','fishtown-ucity','bella-fernrock','grad-frankford','epassyunk-flourtown']},
+    {label:'Intercity', keys:['mifflin-westpoint']}
+  ]
+};
+/* ============ BOSTON MBTA DATA ============ */
+(()=>{
+  const bL={};const bSt={};const bst=(id,nm,la,ln)=>bSt[id]={id,name:nm,lat:la,lng:ln,lines:[]};
+  /* Lines */
+  bL.RL ={name:'Red Line (Ashmont)',   color:'#DA291C',headway:10,bikes:'offpeak',metro:true};
+  bL.RLB={name:'Red Line (Braintree)', color:'#DA291C',headway:20,bikes:'offpeak',metro:true};
+  bL.OL ={name:'Orange Line',          color:'#ED8B00',headway:12,bikes:'offpeak',metro:true};
+  bL.BL ={name:'Blue Line',            color:'#003DA5',headway:12,bikes:'offpeak',metro:true};
+  bL.GLB={name:'Green Line B',         color:'#00843D',headway:12,bikes:'never',  metro:true};
+  bL.GLC={name:'Green Line C',         color:'#00843D',headway:12,bikes:'never',  metro:true};
+  bL.GLD={name:'Green Line D',         color:'#00843D',headway:12,bikes:'never',  metro:true};
+  bL.GLE={name:'Green Line E',         color:'#00843D',headway:15,bikes:'never',  metro:true};
+  /* Red Line trunk */
+  bst('alewife','Alewife',          42.3952,-71.1421); bst('davis','Davis',              42.3967,-71.1226);
+  bst('porter','Porter',            42.3885,-71.1191); bst('harvard','Harvard',           42.3736,-71.1190);
+  bst('central','Central',          42.3655,-71.1036); bst('kendall','Kendall/MIT',       42.3624,-71.0862);
+  bst('charles','Charles/MGH',      42.3615,-71.0707); bst('park_st','Park St',           42.3564,-71.0622);
+  bst('dtx','Downtown Crossing',    42.3554,-71.0601); bst('south_stn','South Station',   42.3521,-71.0552);
+  bst('broadway','Broadway',        42.3426,-71.0566); bst('andrew','Andrew',             42.3302,-71.0574);
+  bst('jfk','JFK/UMass',            42.3201,-71.0524);
+  /* RL Ashmont branch */
+  bst('savin_hill','Savin Hill',    42.3100,-71.0535); bst('fields_corner','Fields Corner',42.2999,-71.0608);
+  bst('shawmut','Shawmut',          42.2929,-71.0655); bst('ashmont','Ashmont',           42.2843,-71.0640);
+  /* RL Braintree branch */
+  bst('nth_quincy','North Quincy',  42.2753,-71.0293); bst('wollaston','Wollaston',       42.2667,-71.0202);
+  bst('quincy_ctr','Quincy Center', 42.2512,-71.0052); bst('quincy_adams','Quincy Adams', 42.2330,-71.0071);
+  bst('braintree','Braintree',      42.2071,-71.0014);
+  /* Orange Line */
+  bst('oak_grove','Oak Grove',      42.4367,-71.0706); bst('malden_ctr','Malden Center',  42.4265,-71.0742);
+  bst('wellington','Wellington',    42.4025,-71.0771); bst('sullivan','Sullivan Square',   42.3836,-71.0763);
+  bst('comm_coll','Community College',42.3736,-71.0696);bst('nth_stn','North Station',    42.3659,-71.0625);
+  bst('haymarket','Haymarket',      42.3632,-71.0579); bst('state','State',               42.3588,-71.0576);
+  bst('chinatown','Chinatown',      42.3521,-71.0630); bst('tufts_med','Tufts Medical',   42.3482,-71.0636);
+  bst('back_bay','Back Bay',        42.3469,-71.0780); bst('mass_ave_ol','Mass Ave',       42.3414,-71.0836);
+  bst('ruggles','Ruggles',          42.3366,-71.0890); bst('rox_crossing','Roxbury Crossing',42.3313,-71.0950);
+  bst('jackson_sq','Jackson Square',42.3233,-71.1005); bst('stony_brook','Stony Brook',   42.3175,-71.1052);
+  bst('green_st','Green Street',    42.3103,-71.1082); bst('forest_hills','Forest Hills', 42.3006,-71.1135);
+  /* Blue Line */
+  bst('bowdoin','Bowdoin',          42.3611,-71.0637); bst('govt_ctr','Government Center',42.3598,-71.0589);
+  bst('aquarium','Aquarium',        42.3594,-71.0518); bst('maverick','Maverick',         42.3701,-71.0396);
+  bst('airport_bl','Airport',       42.3745,-71.0204); bst('wood_island','Wood Island',   42.3790,-71.0096);
+  bst('orient_hts','Orient Heights',42.3860,-70.9998); bst('suffolk_downs','Suffolk Downs',42.3909,-70.9962);
+  bst('beachmont','Beachmont',      42.3970,-70.9921); bst('revere_bch','Revere Beach',   42.4081,-70.9921);
+  bst('wonderland','Wonderland',    42.4139,-70.9916);
+  /* Green Line trunk (shared) */
+  bst('lechmere','Lechmere',        42.3697,-71.0760); bst('science_pk','Science Park',   42.3663,-71.0736);
+  bst('boylston','Boylston',        42.3522,-71.0617); bst('arlington','Arlington',       42.3510,-71.0701);
+  bst('copley','Copley',            42.3497,-71.0773); bst('hynes','Hynes',               42.3486,-71.0857);
+  bst('kenmore','Kenmore',          42.3487,-71.0965);
+  /* GL-B surface (Kenmore → Boston College along Commonwealth Ave) */
+  bst('blandford','Blandford St',   42.3490,-71.1015); bst('bu_east','BU East',           42.3494,-71.1073);
+  bst('bu_central','BU Central',    42.3500,-71.1146); bst('bu_west','BU West',           42.3500,-71.1226);
+  bst('stpaul_b','St Paul St (B)',  42.3500,-71.1276); bst('pleasant_st','Pleasant St',   42.3500,-71.1352);
+  bst('babcock','Babcock St',       42.3498,-71.1404); bst('packards','Packards Corner',  42.3498,-71.1452);
+  bst('harvard_ave','Harvard Ave',  42.3497,-71.1526); bst('griggs','Griggs St',          42.3494,-71.1570);
+  bst('allston_st','Allston St',    42.3494,-71.1618); bst('warren_gl','Warren St',       42.3497,-71.1663);
+  bst('washington_gl','Washington St',42.3497,-71.1716);bst('sutherland','Sutherland Rd', 42.3497,-71.1765);
+  bst('chiswick','Chiswick Rd',     42.3492,-71.1806); bst('chestnut_hill_b','Chestnut Hill Ave',42.3487,-71.1858);
+  bst('south_st_b','South St',      42.3424,-71.1936); bst('bos_college','Boston College',42.3354,-71.1685);
+  /* GL-C surface (Kenmore → Cleveland Circle along Beacon St) */
+  bst('stpaul_c','St Paul St (C)',  42.3420,-71.1024); bst('coolidge','Coolidge Corner',  42.3390,-71.1211);
+  bst('summit_ave','Summit Ave',    42.3375,-71.1319); bst('brandon_hall','Brandon Hall', 42.3360,-71.1371);
+  bst('fairbanks','Fairbanks St',   42.3356,-71.1421); bst('washington_sq','Washington Sq',42.3347,-71.1487);
+  bst('tappan','Tappan St',         42.3342,-71.1538); bst('dean_rd','Dean Rd',           42.3336,-71.1582);
+  bst('englewood','Englewood Ave',  42.3330,-71.1631); bst('cleveland_cir','Cleveland Circle',42.3326,-71.1679);
+  /* GL-D (Kenmore → Riverside, Newton) */
+  bst('fenway_d','Fenway',          42.3434,-71.0994); bst('longwood_d','Longwood',       42.3408,-71.1102);
+  bst('brook_vill','Brookline Village',42.3325,-71.1221);bst('brook_hills','Brookline Hills',42.3293,-71.1298);
+  bst('beaconsfield','Beaconsfield',42.3265,-71.1423); bst('reservoir','Reservoir',       42.3255,-71.1502);
+  bst('chestnut_d','Chestnut Hill', 42.3249,-71.1597); bst('newton_ctr','Newton Centre',  42.3297,-71.1900);
+  bst('newton_hlds','Newton Highlands',42.3233,-71.2033);bst('eliot','Eliot',             42.3205,-71.2124);
+  bst('waban','Waban',              42.3280,-71.2300); bst('woodland_d','Woodland',        42.3305,-71.2432);
+  bst('riverside','Riverside',      42.3370,-71.2558);
+  /* GL-E surface (Heath St → Copley along Huntington Ave) */
+  bst('heath_st','Heath St',        42.3226,-71.1139); bst('back_o_hill','Back of the Hill',42.3252,-71.1124);
+  bst('riverway','Riverway',        42.3274,-71.1114); bst('mission_pk','Mission Park',   42.3302,-71.1106);
+  bst('fenwood_rd','Fenwood Rd',    42.3325,-71.1091); bst('brigham_cir','Brigham Circle',42.3343,-71.1069);
+  bst('longwood_med','Longwood Medical',42.3368,-71.1037);bst('mfa','Museum of Fine Arts',42.3361,-71.0980);
+  bst('northeastern','Northeastern',42.3385,-71.0930); bst('symphony','Symphony',         42.3430,-71.0870);
+  bst('prudential','Prudential',    42.3476,-71.0842);
+  /* Sequences */
+  const bSEQ={
+    RL: ['alewife','davis','porter','harvard','central','kendall','charles','park_st','dtx','south_stn','broadway','andrew','jfk','savin_hill','fields_corner','shawmut','ashmont'],
+    RLB:['alewife','davis','porter','harvard','central','kendall','charles','park_st','dtx','south_stn','broadway','andrew','jfk','nth_quincy','wollaston','quincy_ctr','quincy_adams','braintree'],
+    OL: ['oak_grove','malden_ctr','wellington','sullivan','comm_coll','nth_stn','haymarket','state','dtx','chinatown','tufts_med','back_bay','mass_ave_ol','ruggles','rox_crossing','jackson_sq','stony_brook','green_st','forest_hills'],
+    BL: ['wonderland','revere_bch','beachmont','suffolk_downs','orient_hts','wood_island','airport_bl','maverick','aquarium','state','govt_ctr','bowdoin'],
+    GLB:['bos_college','south_st_b','chestnut_hill_b','chiswick','sutherland','washington_gl','warren_gl','allston_st','griggs','harvard_ave','packards','babcock','pleasant_st','stpaul_b','bu_west','bu_central','bu_east','blandford','kenmore','hynes','copley','arlington','boylston','park_st','govt_ctr','haymarket','nth_stn','science_pk','lechmere'],
+    GLC:['cleveland_cir','englewood','dean_rd','tappan','washington_sq','fairbanks','brandon_hall','summit_ave','coolidge','stpaul_c','kenmore','hynes','copley','arlington','boylston','park_st','govt_ctr','haymarket','nth_stn','science_pk','lechmere'],
+    GLD:['riverside','woodland_d','waban','eliot','newton_hlds','newton_ctr','chestnut_d','reservoir','beaconsfield','brook_hills','brook_vill','longwood_d','fenway_d','kenmore','hynes','copley','arlington','boylston','park_st','govt_ctr','haymarket','nth_stn','science_pk','lechmere'],
+    GLE:['heath_st','back_o_hill','riverway','mission_pk','fenwood_rd','brigham_cir','longwood_med','mfa','northeastern','symphony','prudential','copley','arlington','boylston','park_st','govt_ctr','haymarket','nth_stn','science_pk','lechmere'],
+  };
+  for(const [ln,ids] of Object.entries(bSEQ)) ids.forEach(id=>{if(!bSt[id].lines.includes(ln))bSt[id].lines.push(ln);});
+  const bSEGMIN={
+    RL: {default:2,'park_st|charles':3,'andrew|jfk':3,'jfk|savin_hill':3},
+    RLB:{default:3,'jfk|nth_quincy':4,'quincy_ctr|quincy_adams':3,'quincy_adams|braintree':4},
+    OL: {default:2,'oak_grove|malden_ctr':3,'malden_ctr|wellington':3,'wellington|sullivan':3},
+    BL: {default:2,'aquarium|maverick':3,'maverick|airport_bl':3,'airport_bl|wood_island':2},
+    GLB:{default:2,'park_st|govt_ctr':3,'govt_ctr|haymarket':2,'haymarket|nth_stn':2,'nth_stn|science_pk':2},
+    GLC:{default:2,'park_st|govt_ctr':3},
+    GLD:{default:3,'fenway_d|kenmore':2,'brook_vill|longwood_d':3,'park_st|govt_ctr':3},
+    GLE:{default:2,'park_st|govt_ctr':3,'longwood_med|mfa':2},
+  };
+  const bPRESETS={
+    'harvard-southstn':{a:[42.3736,-71.1190,'Harvard Square'],   b:[42.3521,-71.0552,'South Station'],          label:'Harvard Sq → South Station'},
+    'davis-fenway':    {a:[42.3967,-71.1226,'Davis Square, Somerville'], b:[42.3434,-71.0994,'Fenway Park area'],label:'Davis Sq → Fenway'},
+    'northstn-backbay':{a:[42.3659,-71.0625,'North Station'],   b:[42.3469,-71.0780,'Back Bay Station'],         label:'North Station → Back Bay'},
+    'airport-dtx':     {a:[42.3745,-71.0204,'Airport (Blue Line)'], b:[42.3554,-71.0601,'Downtown Crossing'],   label:'Airport → Downtown Crossing'},
+    'foresthills-dtx': {a:[42.3006,-71.1135,'Forest Hills'],    b:[42.3554,-71.0601,'Downtown Crossing'],        label:'Forest Hills → Downtown Crossing'},
+    'kendall-longwood': {a:[42.3624,-71.0862,'Kendall/MIT'],    b:[42.3368,-71.1037,'Longwood Medical Area'],    label:'Kendall/MIT → Longwood Medical'},
+    'riverside-downtown':{a:[42.3370,-71.2558,'Riverside (Newton)'], b:[42.3554,-71.0601,'Downtown Crossing'],  label:'Riverside → Downtown Crossing'},
+  };
+  window.BOSTON_DATA={
+    LINES:bL, STATIONS:bSt, SEQ:bSEQ, SEGMIN:bSEGMIN,
+    TRANSFERS:[], DOCKS:[], BIKEWAYS:[], PRESETS:bPRESETS,
+    METRO_FARE:2.40, FARE_NAME:'MBTA subway',
+    FARE_NOTE:'MBTA subway $2.40/boarding (CharlieCard). Commuter Rail and Bluebikes not yet modeled.',
+    viewbox:'-71.35,42.15,-70.85,42.55', center:[42.360,-71.062], zoom:13,
+    desc:'Multimodal router that treats the bike as a first-class transit leg. Compares four ways to make the same trip across the MBTA.',
+    peakLabel:'Peak hours (Mon–Fri 7–10a & 4–7p) — MBTA bars bikes on Red, Orange, and Blue lines during peak. Green Line does not allow bikes at any time.',
+    networkHint:'Type to search — pick a suggestion or press Enter. You can also click the map. Network: Red, Orange, Blue, and all four Green Line branches (B/C/D/E).',
+    presetGroups:[{label:'Boston metro', keys:['harvard-southstn','davis-fenway','northstn-backbay','airport-dtx','foresthills-dtx','kendall-longwood','riverside-downtown']}]
+  };
+  window.PHILLY_DATA=PHILLY_DATA;
+})();
 const WESTPOINT_TRIP={
   id:'westpoint', title:'Mifflin St → West Point, NY', sub:'bike + SEPTA + NJT + Metro-North + ferry \xb7 all fares estimated',
   legs:[
@@ -496,7 +630,7 @@ function hav(a,b){
   return 2*R*Math.asin(Math.sqrt(h));
 }
 const bikeMin=d=>d*CIRCUITY/BIKE_MPH*60, walkMin=d=>d*CIRCUITY/WALK_MPH*60;
-const lineAllowsBike=(ln,peak)=>LINES[ln].bikes==='always'||(!peak);
+const lineAllowsBike=(ln,peak)=>{const b=LINES[ln]?.bikes;return b==='always'||(b!=='never'&&!peak);};
 function segMin(ln,a,b){const t=SEGMIN[ln];return t[a+'|'+b]||t[b+'|'+a]||t.default;}
 
 /* Build adjacency for one scenario. Node keys: O, D, S:<id>, P:<id>:<line>, K:<id>.
@@ -611,7 +745,7 @@ function mergeLegs(legs){
   return final;
 }
 /* ================= FARES ================= */
-const METRO_FARE=2.90;                      /* SEPTA Bus/Metro base, 2 free transfers/120min */
+let METRO_FARE=2.90, METRO_FARE_NAME='SEPTA Metro'; /* overridden by loadCity() */
 const RR_ZONE_FARE={CC:0,Z1:5.25,Z2:5.75,Z3:7.50,Z4:10.00,Z5:12.00}; /* SEPTA RR weekday, ESTIMATED */
 /* Zone assignments for every RR station — ESTIMATED, marked ~ in UI */
 const RR_ZONES={
@@ -673,8 +807,8 @@ function tripCost(r,prof){
   let cost=0, metroPaid=false; const items=[]; let est=false;
   for(const l of r.legs){
     if(l.mode==='ride'){
-      if(l.line==='MFL'||l.line==='BSL'){
-        if(!metroPaid){cost+=METRO_FARE;items.push(`SEPTA Metro $${METRO_FARE.toFixed(2)}`);metroPaid=true;}
+      if(LINES[l.line]?.metro){
+        if(!metroPaid){cost+=METRO_FARE;items.push(`${METRO_FARE_NAME} $${METRO_FARE.toFixed(2)}`);metroPaid=true;}
       } else if(LINES[l.line]?.rr){
         const zo=RR_ZONES[l.from.id]||'Z1', zd=RR_ZONES[(l.to&&l.to.id)||'']||'Z1';
         const f=Math.max(RR_ZONE_FARE[zo]||RR_ZONE_FARE.Z1,RR_ZONE_FARE[zd]||RR_ZONE_FARE.Z1);
@@ -700,28 +834,67 @@ const map=L.map('map',{zoomControl:true}).setView([39.965,-75.12],11);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
   attribution:'&copy; OpenStreetMap &copy; CARTO',maxZoom:19
 }).addTo(map);
-/* draw network — polylines per line, markers deduplicated once per station */
-for(const [ln,ids] of Object.entries(SEQ)){
-  L.polyline(ids.map(id=>[STATIONS[id].lat,STATIONS[id].lng]),
-    {color:LINES[ln].color,weight:LINES[ln].rr?2:3,opacity:LINES[ln].rr?.45:.55}).addTo(map);
+let networkLayer=L.layerGroup().addTo(map);
+let CITY_VIEWBOX='-75.4,39.8,-74.9,40.2';
+function drawNetwork(){
+  networkLayer.clearLayers();
+  for(const [ln,ids] of Object.entries(SEQ)){
+    L.polyline(ids.map(id=>[STATIONS[id].lat,STATIONS[id].lng]),
+      {color:LINES[ln].color,weight:LINES[ln].rr?2:3,opacity:LINES[ln].rr?.45:.55}).addTo(networkLayer);
+  }
+  const drawn=new Set();
+  for(const [id,s] of Object.entries(STATIONS)){
+    if(drawn.has(id))continue; drawn.add(id);
+    const c=LINES[s.lines[0]]?.color||'#888';
+    const sz=s.lines.length>1?11:9;
+    L.marker([s.lat,s.lng],{icon:L.divIcon({className:'',html:`<div class="stn-ic" style="width:${sz}px;height:${sz}px;background:${c}"></div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]}),keyboard:false})
+      .addTo(networkLayer).bindTooltip(`${s.name} — ${s.lines.map(l=>LINES[l]?.name||l).join(' / ')}`);
+  }
+  for(const dk of DOCKS){
+    L.marker([dk.lat,dk.lng],{icon:L.divIcon({className:'',html:'<div class="dock-ic" style="width:8px;height:8px;background:#12a37a"></div>',iconSize:[8,8],iconAnchor:[4,4]}),keyboard:false})
+      .addTo(networkLayer).bindTooltip(dk.name);
+  }
+  for(const bw of BIKEWAYS){
+    L.polyline(bw.coords,{color:'#2d7a3a',weight:2.5,opacity:0.55,dashArray:'5 5',interactive:true})
+      .addTo(networkLayer).bindTooltip(bw.name,{sticky:true});
+  }
 }
-const _drawnStn=new Set();
-for(const [id,s] of Object.entries(STATIONS)){
-  if(_drawnStn.has(id))continue; _drawnStn.add(id);
-  const c=LINES[s.lines[0]]?.color||'#888';
-  const sz=s.lines.length>1?11:9; /* major interchange = bigger dot */
-  L.marker([s.lat,s.lng],{icon:L.divIcon({className:'',html:`<div class="stn-ic" style="width:${sz}px;height:${sz}px;background:${c}"></div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]}),keyboard:false})
-    .addTo(map).bindTooltip(`${s.name} — ${s.lines.map(l=>LINES[l].name).join(' / ')}`);
+drawNetwork();
+function loadCity(key){
+  const cd=key==='boston'?window.BOSTON_DATA:window.PHILLY_DATA;
+  LINES=cd.LINES; STATIONS=cd.STATIONS; SEQ=cd.SEQ; SEGMIN=cd.SEGMIN;
+  TRANSFERS=cd.TRANSFERS; DOCKS=cd.DOCKS; BIKEWAYS=cd.BIKEWAYS; PRESETS=cd.PRESETS;
+  METRO_FARE=cd.METRO_FARE; METRO_FARE_NAME=cd.FARE_NAME;
+  CITY_VIEWBOX=cd.viewbox;
+  drawNetwork();
+  map.setView(cd.center,cd.zoom);
+  /* update static text */
+  const gi=id=>document.getElementById(id);
+  const ad=gi('appDesc'); if(ad)ad.textContent=cd.desc;
+  const pl=gi('peakLabel'); if(pl)pl.textContent=cd.peakLabel;
+  const nh=gi('networkHint'); if(nh&&cd.networkHint)nh.textContent=cd.networkHint;
+  /* rebuild preset dropdown */
+  const sel=gi('preset');
+  sel.innerHTML='<option value="">Example trips…</option>';
+  for(const g of cd.presetGroups){
+    const og=document.createElement('optgroup'); og.label=g.label;
+    g.keys.forEach(k=>{
+      const o=document.createElement('option'); o.value=k;
+      o.textContent=cd.PRESETS[k]?.label||k; og.appendChild(o);
+    });
+    sel.appendChild(og);
+  }
+  /* reset current trip (guarded — may be called before UI vars are initialized) */
+  if(typeof A!=='undefined'){
+    A=B=null; intercityTrip=null;
+    if(mA)mA.remove(); if(mB)mB.remove(); mA=mB=null;
+    gi('aInput').value=''; gi('bInput').value='';
+    if(typeof clearRoutes==='function')clearRoutes();
+    gi('results').innerHTML='<div class="hint" style="padding-top:4px">Pick an example trip or type addresses above.</div>';
+  }
 }
-for(const dk of DOCKS){
-  L.marker([dk.lat,dk.lng],{icon:L.divIcon({className:'',html:'<div class="dock-ic" style="width:8px;height:8px;background:#12a37a"></div>',iconSize:[8,8],iconAnchor:[4,4]}),keyboard:false})
-    .addTo(map).bindTooltip(dk.name);
-}
-/* bike trail layer — drawn under routes, distinct style */
-for(const bw of BIKEWAYS){
-  L.polyline(bw.coords,{color:'#2d7a3a',weight:2.5,opacity:0.55,dashArray:'5 5',interactive:true})
-    .addTo(map).bindTooltip(bw.name,{sticky:true});
-}
+/* initial preset population for Philly */
+loadCity('philly');
 let A=null,B=null,nextIsA=true,mA=null,mB=null,routeLayers=[],itins={},selected=null,intercityTrip=null;
 const $=id=>document.getElementById(id);
 function abIcon(t){return L.divIcon({className:'',html:`<div class="ab-ic" style="width:24px;height:24px">${t}</div>`,iconSize:[24,24],iconAnchor:[12,12]});}
@@ -732,6 +905,7 @@ function setPoint(which,lat,lng,label){
   compute();
 }
 map.on('click',e=>{intercityTrip=null;setPoint(nextIsA?'A':'B',e.latlng.lat,e.latlng.lng);nextIsA=!nextIsA;});
+$('citySelect').addEventListener('change',e=>loadCity(e.target.value));
 $('preset').addEventListener('change',e=>{
   const k=e.target.value;
   const p=PRESETS[k];if(!p)return;
@@ -749,7 +923,7 @@ function geocode(query,which){
   intercityTrip=null;
   const inp=$(which==='A'?'aInput':'bInput');
   inp.classList.remove('err');
-  fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&viewbox=-75.4,39.8,-74.9,40.2&bounded=0&countrycodes=us`,{headers:{'Accept-Language':'en'}})
+  fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&viewbox=${CITY_VIEWBOX}&bounded=0&countrycodes=us`,{headers:{'Accept-Language':'en'}})
     .then(r=>r.json())
     .then(res=>{
       if(!res.length){inp.classList.add('err');return;}
@@ -763,7 +937,7 @@ function closeSugg(id){$(id).classList.remove('open');}
 function fetchSuggestions(query,suggId,which){
   const sugg=$(suggId);
   if(query.length<2){closeSugg(suggId);return;}
-  fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&viewbox=-75.4,39.8,-74.9,40.2&bounded=1&countrycodes=us`,{headers:{'Accept-Language':'en'}})
+  fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&viewbox=${CITY_VIEWBOX}&bounded=1&countrycodes=us`,{headers:{'Accept-Language':'en'}})
     .then(r=>r.json())
     .then(res=>{
       sugg.innerHTML='';
@@ -926,7 +1100,10 @@ function compute(){
     const directBike=bikeMin(hav(A,B));
     html+=`<div class="note">Bike-only not shown: ${(hav(A,B)*CIRCUITY).toFixed(1)} mi exceeds your ${PROF.bikeMax} mi max. Adjust in rider profile to see it.</div>`;
   }
-  html+=`<div class="note">Costs assume contactless/Key payment. PATCO fares exact; SEPTA Metro $2.90 incl. free transfers; Regional Rail zone fares are estimates${PROF.indego==='member'?'; Indego plan cost ($20/mo or $156/yr) not counted per-trip':''}.</div>`;
+  const cityFareNote=(LINES===window.BOSTON_DATA?.LINES)
+    ?'MBTA subway $2.40/boarding (CharlieCard). Commuter Rail and Bluebikes not yet modeled.'
+    :`PATCO fares exact; SEPTA Metro $2.90 incl. free transfers; Regional Rail zone fares are estimates${PROF.indego==='member'?'; Indego plan cost ($20/mo or $156/yr) not counted per-trip':''}.`;
+  html+=`<div class="note">${cityFareNote}</div>`;
   $('results').innerHTML=html;
   document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>select(c.dataset.sc)));
   select(bestScenario());
