@@ -64,15 +64,15 @@
   .hint{font-size:12px;color:var(--faint);line-height:1.5}
   /* ---------- results ---------- */
   #results{flex:1;overflow-y:auto;padding:12px 18px 20px;display:flex;flex-direction:column;gap:8px}
-  .card{background:var(--panel2);border:1px solid var(--line);border-radius:0;padding:14px 16px;cursor:pointer;transition:background .1s}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:0;padding:16px 20px;cursor:pointer;transition:background .1s}
   .card:hover{background:var(--panel)}
-  .card.sel{background:var(--panel);border-left:4px solid var(--bike);padding-left:13px}
-  .card .top{display:flex;align-items:baseline;gap:10px;margin-bottom:2px}
-  .card .name{font-family:var(--body);text-transform:uppercase;letter-spacing:.09em;font-size:14px;font-weight:700;flex:1}
-  .card .time{font-family:var(--mono);font-size:26px;font-weight:700}
+  .card.sel{background:var(--panel);border-left:4px solid var(--bike);padding-left:17px}
+  .card .top{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+  .card .name{font-family:var(--body);text-transform:uppercase;letter-spacing:.09em;font-size:15px;font-weight:700;flex:1}
+  .card .time{font-family:var(--mono);font-size:34px;font-weight:700}
   .card .delta{font-family:var(--mono);font-size:12px}
   .delta.faster{color:var(--good)} .delta.slower{color:var(--bad)} .delta.base{color:var(--faint)}
-  .card .hint{font-size:12px;color:var(--dim);margin-bottom:4px}
+  .card .hint{font-size:13px;color:var(--dim);margin-bottom:0}
   .card .nf{font-size:13px;color:var(--dim);margin-top:8px;line-height:1.5}
   /* strip map */
   .strip{margin-top:10px;display:flex;flex-direction:column}
@@ -99,19 +99,35 @@
   .car-ref.open .car-expand{display:block}
   .car-caret{margin-left:auto;font-size:10px;transition:transform .15s}
   .car-ref.open .car-caret{transform:rotate(180deg)}
-  footer{padding:10px 18px;border-top:1px solid var(--line);font-size:11px;color:var(--faint);line-height:1.5}
   /* ---------- map ---------- */
-  #map{flex:1;min-width:0;background:var(--paper)}
+  #map{flex:1;min-width:0;background:var(--paper);position:relative}
   .leaflet-container{font-family:var(--body)}
   .stn-ic{border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
   .dock-ic{border-radius:2px;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
   .ab-ic{display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--ink);color:#fff;font:700 12px/1 var(--mono);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+  /* ---------- route detail panel ---------- */
+  .rd-panel{position:absolute;left:0;top:0;bottom:0;width:320px;background:var(--panel);border-right:2px solid var(--line);z-index:900;display:flex;flex-direction:column;box-shadow:4px 0 20px rgba(0,0,0,.18);transform:translateX(-105%);transition:transform .22s cubic-bezier(.4,0,.2,1);pointer-events:none}
+  .rd-panel.open{transform:translateX(0);pointer-events:auto}
+  .rd-head{padding:16px 18px 12px;border-bottom:1px solid var(--line);flex-shrink:0;position:relative}
+  .rd-name{font-family:var(--display);font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;padding-right:30px;line-height:1.2}
+  .rd-meta{margin-top:8px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .rd-bigtime{font-family:var(--mono);font-size:32px;font-weight:700}
+  .rd-close{position:absolute;top:10px;right:10px;background:none;border:none;font-size:22px;cursor:pointer;color:var(--dim);line-height:1;padding:4px 7px}
+  .rd-close:hover{color:var(--text)}
+  .rd-body{flex:1;overflow-y:auto;padding:14px 18px 24px}
+  .rd-addrs{font-size:12px;color:var(--dim);margin-bottom:14px;border-bottom:1px solid var(--panel2);padding-bottom:12px;display:flex;flex-direction:column;gap:5px}
+  .rd-addr-row{display:flex;align-items:flex-start;gap:7px}
+  .rd-addr-row b{font-family:var(--mono);font-size:10px;color:#fff;background:var(--ink);border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+  .rd-fares{margin-top:14px;border-top:1px solid var(--panel2);padding-top:10px;font-size:12px;color:var(--dim);line-height:1.7}
+  .rd-fares b{color:var(--text)}
+  /* ---------- prototype note overlay ---------- */
+  .proto-note{position:absolute;bottom:38px;right:8px;z-index:800;font-size:10px;color:var(--ink);line-height:1.5;max-width:260px;text-align:right;opacity:0.32;pointer-events:none}
   @media (max-width:760px){
     #app{flex-direction:column}
     #side{width:100%;min-width:0;max-height:62%;order:2;overflow-y:auto;display:block}
     #map{order:1;min-height:38%}
     header p{display:none}
-    footer{display:none}
+    .rd-panel{display:none}
   }
   @media (prefers-reduced-motion: reduce){ *{transition:none!important} }
 </style>
@@ -171,9 +187,11 @@
       <div class="hint" id="networkHint">Type to search — pick a suggestion or press Enter. You can also click the map. Network: all SEPTA Regional Rail lines, MFL, BSL, PATCO, surface trolleys, and sample Indego docks.</div>
     </div>
     <div id="results"><div class="hint" style="padding-top:4px">Pick an example trip or set two points on the map.</div></div>
-    <footer>Prototype. Schedules are average headways, not live GTFS; station coordinates approximate. Selected route map uses real street routing (OSRM). Time estimates use straight-line × 1.3 circuity factor; actual times may vary.</footer>
   </div>
-  <div id="map" role="application" aria-label="Route map"></div>
+  <div id="map" role="application" aria-label="Route map">
+    <div id="routeDetail" class="rd-panel"></div>
+    <div class="proto-note">Prototype. Schedules are average headways, not live GTFS; station coordinates approximate. Map uses real street routing (OSRM). Times use straight-line × 1.3 circuity factor; actual times may vary.</div>
+  </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -1113,7 +1131,52 @@ $('profHead').addEventListener('click',()=>{
 });
 for(const id of ['hasBike','carryOK','indegoPlan'])$(id).addEventListener('change',()=>{compute();setTimeout(collapseProf,350);});
 $('bikeMax').addEventListener('change',compute);
-function clearRoutes(){routeLayers.forEach(l=>l.remove());routeLayers=[];}
+function clearRoutes(){routeLayers.forEach(l=>l.remove());routeLayers=[];hideDetail();}
+function hideDetail(){const p=document.getElementById('routeDetail');if(p)p.classList.remove('open');}
+function showDetail(scId){
+  const p=document.getElementById('routeDetail');if(!p)return;
+  const r=itins[scId];const sc=SCENARIOS.find(s=>s.id===scId);
+  if(!r||!sc){hideDetail();return;}
+  const tc=tripCost(r,PROF);
+  const base=itins['baseline'];
+  const delta=base&&base.min?r.min-base.min:0;
+  const dTxt=scId==='baseline'?'<span class="delta base">baseline</span>':
+    delta<-0.5?`<span class="delta faster">−${Math.round(-delta)} min faster</span>`:
+    delta>0.5?`<span class="delta slower">+${Math.round(delta)} min slower</span>`:'<span class="delta base">≈ same time</span>';
+  const costChip=tc.cost===0?'$0':(tc.est?'~':'')+'$'+tc.cost.toFixed(2);
+  let html=`<div class="rd-head">
+    <div class="rd-name">${sc.name}</div>
+    <div class="rd-meta"><span class="cost" title="${tc.items.join(' + ')||'no fares'}">${costChip}</span><span class="rd-bigtime">${Math.round(r.min)}<span style="font-size:14px;color:var(--dim);font-weight:400"> min</span></span>${dTxt}</div>
+    <button class="rd-close" onclick="hideDetail()">×</button>
+  </div><div class="rd-body">`;
+  if(A&&B){
+    html+=`<div class="rd-addrs"><div class="rd-addr-row"><b>A</b><span>${A.name}</span></div><div class="rd-addr-row"><b>B</b><span>${B.name}</span></div></div>`;
+  }
+  html+='<div class="strip">';
+  html+=`<div class="endrow"><div class="rail"><div class="dot" style="border-color:var(--text)"></div></div><div class="body">${A?A.name:'Start'}</div></div>`;
+  for(const l of r.legs){
+    const c=l.line?LINES[l.line].color:(l.mode==='bike'?'var(--bike)':'var(--walk)');
+    const dash=l.mode==='ride'?'solid':'dashed';
+    let txt;
+    if(l.mode==='ride'){
+      txt=`<b>${LINES[l.line].name}</b>`;
+      if(l.board||l.alight)txt+=`<br><span style="font-size:12px;color:var(--faint)">`;
+      if(l.board)txt+=`Board: ${l.board}`;
+      if(l.alight)txt+=` → ${l.alight}`;
+      if(l.stops)txt+=` · ${l.stops} stop${l.stops>1?'s':''}`;
+      if(l.board||l.alight)txt+=`</span>`;
+      if(l.wait)txt+=`<br><span style="font-size:12px;color:var(--faint)">~${Math.round(l.wait)} min wait</span>`;
+    } else {
+      txt=l.label;
+    }
+    html+=`<div class="leg"><div class="rail"><div class="seg ${dash}" style="--c:${c}"></div><div class="dot" style="border-color:${c}"></div></div><div class="body">${txt}</div><div class="min">${Math.max(1,Math.round(l.min))}m</div></div>`;
+  }
+  html+=`<div class="endrow"><div class="rail"></div><div class="body">${B?B.name:'Arrive'}</div></div></div>`;
+  if(tc.items.length)html+=`<div class="rd-fares"><b>Fares:</b> ${tc.items.join(' · ')}</div>`;
+  html+='</div>';
+  p.innerHTML=html;
+  p.classList.add('open');
+}
 const SCENARIOS=[
   {id:'baseline',name:'Walk + transit',sub:'the Google Maps answer'},
   {id:'carry',name:'Bike carried aboard',sub:'bike rides the train with you'},
@@ -1234,26 +1297,14 @@ function bestScenario(){
   return best;
 }
 function card(sc,r,base){
-  if(!r)return `<div class="card" data-sc="${sc.id}"><div class="top"><div class="name">${sc.name}</div><div class="time" style="color:var(--faint)">—</div></div><div class="nf">No feasible itinerary under current rules${sc.id==='carry'?' (bikes barred on the lines this trip needs right now)':''}${sc.id==='indego'?' (trip ends beyond Indego’s service area or docks)':''}.</div></div>`;
+  if(!r)return `<div class="card" data-sc="${sc.id}"><div class="top"><div class="name">${sc.name}</div><div class="time" style="color:var(--faint)">—</div></div><div class="nf">No feasible itinerary under current rules${sc.id==='carry'?' (bikes barred on the lines this trip needs right now)':''}${sc.id==='indego'?" (trip ends beyond Indego's service area or docks)":''}.</div></div>`;
   const delta=base&&base.min?r.min-base.min:0;
   const dTxt=sc.id==='baseline'?'<span class="delta base">baseline</span>':
     delta<-0.5?`<span class="delta faster">−${Math.round(-delta)} min</span>`:
     delta>0.5?`<span class="delta slower">+${Math.round(delta)} min</span>`:'<span class="delta base">≈ same</span>';
-  let strip='<div class="strip">';
-  strip+=`<div class="endrow"><div class="rail"><div class="dot" style="border-color:var(--text)"></div></div><div class="body">Start</div></div>`;
-  for(const l of r.legs){
-    const c=l.line?LINES[l.line].color:(l.mode==='bike'?'var(--bike)':'var(--walk)');
-    const dash=l.mode==='ride'?'solid':'dashed';
-    let txt;
-    if(l.mode==='ride'){
-      txt=`<b>${LINES[l.line].name}</b><br>${l.board?`Board at ${l.board}`:''}${l.alight?` → ${l.alight}`:''}${l.stops?` · ${l.stops} stops`:''}${l.wait?`<br>incl. ~${Math.round(l.wait)} min wait`:''}`;
-    } else txt=l.label;
-    strip+=`<div class="leg"><div class="rail"><div class="seg ${dash}" style="--c:${c}"></div><div class="dot" style="border-color:${c}"></div></div><div class="body">${txt}</div><div class="min">${Math.max(1,Math.round(l.min))}m</div></div>`;
-  }
-  strip+=`<div class="endrow"><div class="rail"></div><div class="body">Arrive</div></div></div>`;
   const tc=tripCost(r,PROF);
   const costChip=`<span class="cost" title="${tc.items.join(' + ')||'no fares'}">${tc.cost===0?'$0':(tc.est?'~':'')+'$'+tc.cost.toFixed(2)}</span>`;
-  return `<div class="card" data-sc="${sc.id}"><div class="top"><div class="name">${sc.name}</div>${costChip}${dTxt}<div class="time">${Math.round(r.min)}<span style="font-size:11px;color:var(--dim)"> min</span></div></div><div class="hint">${sc.sub}${tc.items.length?' · '+tc.items.join(' + '):''}</div>${strip}</div>`;
+  return `<div class="card" data-sc="${sc.id}"><div class="top"><div class="name">${sc.name}</div>${costChip}${dTxt}<div class="time">${Math.round(r.min)}<span style="font-size:13px;color:var(--dim)"> min</span></div></div><div class="hint">${sc.sub}${tc.items.length?' · '+tc.items.join(' + '):''}</div></div>`;
 }
 function intercityCard(trip){
   const peak=$('peak').checked;
@@ -1352,6 +1403,7 @@ function select(scId){
     }
   }
   if(selPts.length>1)map.fitBounds(selPts,{padding:[40,40]});
+  showDetail(scId);
 }
 </script>
 <script>
