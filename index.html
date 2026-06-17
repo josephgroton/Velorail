@@ -74,6 +74,8 @@
   .delta.faster{color:var(--good)} .delta.slower{color:var(--bad)} .delta.base{color:var(--faint)}
   .card .hint{font-size:13px;color:var(--dim);margin-bottom:0}
   .card .nf{font-size:13px;color:var(--dim);margin-top:8px;line-height:1.5}
+  .card .dep{font-size:12px;color:var(--dim);margin-top:5px}
+  .card .dep b{color:var(--text);font-family:var(--mono)}
   /* strip map */
   .strip{margin-top:10px;display:flex;flex-direction:column}
   .leg{display:flex;gap:12px;min-height:34px}
@@ -166,6 +168,11 @@
           <div class="ep"><b>B</b><input type="text" id="bInput" placeholder="Destination" autocomplete="off" spellcheck="false" aria-label="Destination" aria-autocomplete="list" aria-controls="bSugg"></div>
           <ul class="suggestions" id="bSugg" role="listbox"></ul>
         </div>
+        <div class="ep" style="gap:8px;padding:5px 9px">
+          <span style="font-family:var(--display);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.11em;color:var(--faint);white-space:nowrap">Depart at</span>
+          <input type="time" id="departInput" style="flex:1;background:transparent;border:none;outline:none;font:13px var(--body);color:var(--text);min-width:0;padding:0" aria-label="Departure time">
+          <button id="clearDepart" style="background:none;border:none;color:var(--faint);font-size:14px;padding:0 2px;cursor:pointer;line-height:1" title="Clear departure time">—</button>
+        </div>
       </div>
       <div class="prof" id="prof">
         <div class="prof-head" id="profHead">
@@ -193,10 +200,11 @@
   </div>
   <div id="map" role="application" aria-label="Route map">
     <div id="routeDetail" class="rd-panel"></div>
-    <div class="proto-note">Prototype. Schedules are average headways, not live GTFS; station coordinates approximate. Map uses real street routing (OSRM). Times use straight-line × 1.3 circuity factor; actual times may vary.</div>
+    <div class="proto-note">Prototype. Map uses real street routing (OSRM). SEPTA schedules from GTFS (rebuilt June 2026). Other agencies use average headways. Times use straight-line × 1.3 circuity; actual times may vary.</div>
   </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="data/septa_gtfs.js"></script>
 <script>
 /* ================= NETWORK DATA ================= */
 let LINES = {
@@ -1077,6 +1085,7 @@ function drawNetwork(){
   }
 }
 drawNetwork();
+patchGTFS(); /* apply real SEPTA coords + segment times + headways on initial load */
 function loadCity(key){
   const cd=key==='boston'?window.BOSTON_DATA:key==='nyc'?window.NYC_DATA:(window.PHILLY_DATA||PHILLY_DATA);
   if(!cd){console.error('No city data for',key);return;}
@@ -1085,6 +1094,7 @@ function loadCity(key){
   METRO_FARE=cd.METRO_FARE; METRO_FARE_NAME=cd.FARE_NAME;
   CITY_VIEWBOX=cd.viewbox;
   drawNetwork();
+  if(!key||key==='philly')patchGTFS();
   map.setView(cd.center,cd.zoom);
   /* update static text */
   const gi=id=>document.getElementById(id);
@@ -1227,6 +1237,45 @@ $('profHead').addEventListener('click',()=>{
 });
 for(const id of ['hasBike','carryOK','indegoPlan'])$(id).addEventListener('change',()=>{compute();setTimeout(collapseProf,350);});
 $('bikeMax').addEventListener('change',compute);
+$('departInput').addEventListener('change',()=>{parseDepartMin();compute();});
+$('clearDepart').addEventListener('click',()=>{$('departInput').value='';DEPART_MIN=null;compute();});
+/* ── GTFS integration ────────────────────────────────────────────────── */
+function patchGTFS(){
+  const gtfs=window.SEPTA_GTFS;if(!gtfs)return;
+  for(const[rid,rd] of Object.entries(gtfs.routes)){
+    /* real coordinates */
+    for(const[oid,c] of Object.entries(rd.coords||{}))
+      if(STATIONS[oid]){STATIONS[oid].lat=c.lat;STATIONS[oid].lng=c.lng;}
+    /* real segment times */
+    for(const[pair,m] of Object.entries(rd.seg_times||{}))
+      if(SEGMIN[rid])SEGMIN[rid][pair]=m;
+    /* real headways — use offpeak as default, keep peak/late for schedule display */
+    const hw=rd.headways||{};
+    if(LINES[rid]&&(hw.offpeak||hw.peak)){
+      LINES[rid].headway=hw.offpeak||hw.peak;
+      LINES[rid].gtfsHeadways=hw;
+    }
+  }
+}
+/* minutes-from-midnight → "8:24am" */
+function fmtHHMM(m){const h=Math.floor(m/60)%24,mn=Math.round(m%60);return`${h%12||12}:${String(mn).padStart(2,'0')}${h<12?'am':'pm'}`;}
+/* Find next weekday departure at a station on a line, after afterMin */
+function nextDep(stationId,lineId,afterMin){
+  const gtfs=window.SEPTA_GTFS;if(!gtfs)return null;
+  const rd=gtfs.routes[lineId];if(!rd||!rd.schedule)return null;
+  for(const dir of['0','1']){
+    const stops=rd.schedule[dir];if(!stops||!stops[stationId])continue;
+    const dep=stops[stationId].find(t=>t>=afterMin);if(dep!==undefined)return dep;
+  }
+  return null;
+}
+/* Parse HH:MM time input → minutes from midnight */
+let DEPART_MIN=null; /* null = use average headways */
+function parseDepartMin(){
+  const v=document.getElementById('departInput').value;
+  if(!v){DEPART_MIN=null;return;}
+  const[h,m]=v.split(':').map(Number);DEPART_MIN=h*60+m;
+}
 function clearRoutes(){routeLayers.forEach(l=>l.remove());routeLayers=[];hideDetail();}
 function hideDetail(){const p=document.getElementById('routeDetail');if(p)p.classList.remove('open');restoreNetwork();}
 function showDetail(scId){
@@ -1401,7 +1450,19 @@ function card(sc,r,base){
     delta>0.5?`<span class="delta slower">+${Math.round(delta)} min</span>`:'<span class="delta base">≈ same</span>';
   const tc=tripCost(r,PROF);
   const costChip=`<span class="cost" title="${tc.items.join(' + ')||'no fares'}">${tc.cost===0?'$0':(tc.est?'~':'')+'$'+tc.cost.toFixed(2)}</span>`;
-  return `<div class="card" data-sc="${sc.id}"><div class="top"><div class="name">${sc.name}</div>${costChip}${dTxt}<div class="time">${fmtMin(r.min)}</div></div><div class="hint">${sc.sub}${tc.items.length?' · '+tc.items.join(' + '):''}</div></div>`;
+  /* departure chip — show next real train time if user set a depart-at time */
+  let depLine='';
+  if(DEPART_MIN!==null&&r){
+    const transit=r.legs.find(l=>l.mode==='ride'&&l.line);
+    if(transit){
+      /* estimate when rider reaches the boarding platform */
+      const walkBike=r.legs.slice(0,r.legs.indexOf(transit)).reduce((s,l)=>s+l.min,0);
+      const atPlatform=DEPART_MIN+walkBike;
+      const dep=nextDep(transit.from?.id||transit.board,transit.line,atPlatform);
+      if(dep!==null)depLine=`<div class="dep">Board <b>${LINES[transit.line].name}</b> at <b>${fmtHHMM(dep)}</b></div>`;
+    }
+  }
+  return `<div class="card" data-sc="${sc.id}"><div class="top"><div class="name">${sc.name}</div>${costChip}${dTxt}<div class="time">${fmtMin(r.min)}</div></div><div class="hint">${sc.sub}${tc.items.length?' · '+tc.items.join(' + '):''}</div>${depLine}</div>`;
 }
 function intercityCard(trip){
   const peak=$('peak').checked;
