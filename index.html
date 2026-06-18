@@ -1757,26 +1757,22 @@ function renderTurnByTurn(legIdx,steps){
 /* ORS cycling-safe step types → arrow icons */
 const ORS_ICONS=['←','→','↙','↘','↖','↗','↑','↻','↻','↩','','↑','↖','↗'];
 function parseOrsSteps(steps){
-  /* A name is useful only if non-blank, non-dash, and not a bare number (route refs like "89","0") */
-  const named=n=>{const s=String(n||'').trim();return s&&s!=='-'&&!/^\d+$/.test(s);};
-  /* Extract just the direction verb from an ORS instruction ("Turn right on 89" → "Turn right") */
-  const verb=ins=>(ins||'').match(/^(Head\s+\w+|Turn\s+(?:left|right)|Keep\s+(?:left|right)|Slight\s+(?:left|right)|Continue|Go\s+straight|At\s+roundabout[^,]+|Make\s+a\s+U-turn)/i)?.[0]||'';
-  const STRAIGHT=6;
   return steps
     .filter(s=>{
       const d=+s.distance;
-      if(!isFinite(d)||d<=5)return false;
-      if(s.type===10||s.type===11)return false;
-      if(String(s.name||'').toLowerCase().includes('turncost'))return false;
-      if(String(s.instruction||'').toLowerCase().includes('turncost'))return false;
-      /* Unnamed straight-ahead segments carry no useful direction info — drop them */
-      if(s.type===STRAIGHT&&!named(s.name))return false;
+      if(!isFinite(d)||d<=10)return false;       /* too short to be useful */
+      if(s.type===10||s.type===11)return false;  /* arrive/depart bookends */
+      const ins=String(s.instruction||'').toLowerCase();
+      if(ins.includes('turncost'))return false;  /* ORS internal artifact */
       return true;
     })
     .map(s=>{
+      /* Prefer the street name; if blank/dash/bare-number fall back to instruction verb */
       const nm=String(s.name||'').trim();
-      /* Named street → show it. Unnamed turn → show direction verb ("Turn right"). */
-      const street=named(nm)?nm:verb(s.instruction)||'continue';
+      const useName=nm&&nm!=='-'&&nm!=='0'&&!/^\d+$/.test(nm);
+      const street=useName?nm
+        :(s.instruction||'').replace(/^(Head\s+\w+(\s+on\s+)?|Turn\s+(left|right)\s+(onto\s+)?|Keep\s+(left|right)(\s+on\s+)?|Slight\s+(left|right)(\s+on\s+)?|Continue\s+on\s+|Go\s+straight(\s+on\s+)?|At\s+roundabout[^,]+,\s*take\s+exit\s+\d+\s*(onto\s+)?|Make\s+a\s+U-turn(\s+on\s+)?)/i,'').trim()||
+          (s.instruction||'').replace(/\s+on\s+.*$/i,'').trim()||'continue';
       return {icon:ORS_ICONS[s.type]??'↑',street,distM:+s.distance};
     });
 }
@@ -1827,10 +1823,7 @@ function fetchBikeRoute(from,to,idx,epoch,opts,legIdx){
         routeLayers[idx]=L.polyline(coords,opts).addTo(map);
         if(legIdx!=null){
           const steps=data.features[0].properties?.segments?.[0]?.steps||[];
-          console.log('[ORS] steps count:',steps.length,'first 3:',JSON.stringify(steps.slice(0,3)));
-          const parsed=parseOrsSteps(steps);
-          console.log('[ORS] parsed count:',parsed.length,'first 3:',JSON.stringify(parsed.slice(0,3)));
-          renderTurnByTurn(legIdx,parsed);
+          renderTurnByTurn(legIdx,parseOrsSteps(steps));
         }
       })
       .catch(()=>fetchBrouterBikeRoute(from,to,idx,epoch,opts,legIdx));
