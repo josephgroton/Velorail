@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>if(localStorage.getItem('vrDark')==='1')document.documentElement.className='dark';</script>
 <title>Velorail  -  bike+transit router</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.svg">
@@ -23,6 +24,17 @@
     --body:Inter,Arial,sans-serif;
     --mono:Inter,Arial,sans-serif;
   }
+  html.dark{
+    --ink:#ddd5c8; --panel:#1e1a16; --panel2:#272219; --line:#3a302a;
+    --paper:#151210; --text:#ddd5c8; --dim:#8a7c70; --faint:#5a504a;
+    --bike:#18d4a0; --walk:#8a7c70; --good:#12b080; --bad:#e84848;
+  }
+  html.dark .leaflet-control-zoom a{background:var(--panel2)!important;color:var(--text)!important;border-color:var(--line)!important;}
+  html.dark .leaflet-tooltip{background:var(--panel2)!important;color:var(--text)!important;border-color:var(--line)!important;box-shadow:none!important;}
+  html.dark .leaflet-tooltip-left:before{border-left-color:var(--line)!important;}
+  html.dark .leaflet-tooltip-right:before{border-right-color:var(--line)!important;}
+  html.dark .leaflet-bar{border-color:var(--line)!important;}
+  html.dark .leaflet-bar a{border-bottom-color:var(--line)!important;}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{font-family:var(--body);background:var(--paper);color:var(--text);display:flex;flex-direction:column}
@@ -213,6 +225,26 @@
   <div id="map" role="application" aria-label="Route map">
     <div id="routeDetail" class="rd-panel"></div>
     <div class="proto-note">Prototype. Map uses real street routing (OSRM). SEPTA schedules from GTFS (rebuilt June 2026). Other agencies use average headways. Times use straight-line × 1.3 circuity; actual times may vary.</div>
+  </div>
+</div>
+<div id="pm-overlay" onclick="closeProfile()"></div>
+<div id="profile-modal">
+  <div class="pm-head">
+    <span class="pm-title">Rider profile</span>
+    <button class="pm-close" onclick="closeProfile()">×</button>
+  </div>
+  <div class="pm-body">
+    <label class="pt"><input type="checkbox" id="hasBike" checked> I have a personal bike</label>
+    <label class="pt" style="margin-left:22px"><input type="checkbox" id="carryOK" checked> ...and I'm willing to take it aboard transit</label>
+    <label class="pt" id="bikeMaxRow" style="margin-left:22px">Show bike-only option up to <input type="number" id="bikeMax" min="1" max="50" value="8" style="width:44px;padding:2px 5px;font-size:13px;border:1px solid var(--line);background:var(--panel2);color:var(--text)"> mi</label>
+    <label class="pt">Indego bikeshare:
+      <select id="indegoPlan" style="flex:1;margin-top:4px">
+        <option value="payg">pay per ride - $4.50 / 30 min</option>
+        <option value="member">member - Indego30/365, rides included</option>
+        <option value="none">don't use Indego</option>
+      </select>
+    </label>
+    <div class="hint" style="margin-top:8px">Your profile is saved automatically and remembered next visit.</div>
   </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -1692,25 +1724,5 @@ if(localStorage.getItem('srProtoDismissed')==='1')document.getElementById('proto
 else setTimeout(dismissProto,7000);
 loadProfile();
 </script>
-<div id="pm-overlay" onclick="closeProfile()"></div>
-<div id="profile-modal">
-  <div class="pm-head">
-    <span class="pm-title">Rider profile</span>
-    <button class="pm-close" onclick="closeProfile()">×</button>
-  </div>
-  <div class="pm-body">
-    <label class="pt"><input type="checkbox" id="hasBike" checked> I have a personal bike</label>
-    <label class="pt" style="margin-left:22px"><input type="checkbox" id="carryOK" checked> ...and I'm willing to take it aboard transit</label>
-    <label class="pt" id="bikeMaxRow" style="margin-left:22px">Show bike-only option up to <input type="number" id="bikeMax" min="1" max="50" value="8" style="width:44px;padding:2px 5px;font-size:13px;border:1px solid var(--line);background:var(--panel2);color:var(--text)"> mi</label>
-    <label class="pt">Indego bikeshare:
-      <select id="indegoPlan" style="flex:1;margin-top:4px">
-        <option value="payg">pay per ride - $4.50 / 30 min</option>
-        <option value="member">member - Indego30/365, rides included</option>
-        <option value="none">don't use Indego</option>
-      </select>
-    </label>
-    <div class="hint" style="margin-top:8px">Your profile is saved automatically and remembered next visit.</div>
-  </div>
-</div>
 </body>
 </html>
