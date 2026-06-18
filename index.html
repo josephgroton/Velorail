@@ -1757,24 +1757,26 @@ function renderTurnByTurn(legIdx,steps){
 /* ORS cycling-safe step types → arrow icons */
 const ORS_ICONS=['←','→','↙','↘','↖','↗','↑','↻','↻','↩','','↑','↖','↗'];
 function parseOrsSteps(steps){
-  /* A name is only useful if it's not blank, a dash, or a bare number (e.g. "0", "89", "95") */
+  /* A name is useful only if non-blank, non-dash, and not a bare number (route refs like "89","0") */
   const named=n=>{const s=String(n||'').trim();return s&&s!=='-'&&!/^\d+$/.test(s);};
+  /* Extract just the direction verb from an ORS instruction ("Turn right on 89" → "Turn right") */
+  const verb=ins=>(ins||'').match(/^(Head\s+\w+|Turn\s+(?:left|right)|Keep\s+(?:left|right)|Slight\s+(?:left|right)|Continue|Go\s+straight|At\s+roundabout[^,]+|Make\s+a\s+U-turn)/i)?.[0]||'';
   const STRAIGHT=6;
   return steps
     .filter(s=>{
       const d=+s.distance;
       if(!isFinite(d)||d<=5)return false;
       if(s.type===10||s.type===11)return false;
-      /* ORS emits TurnCost as name or instruction — catch both */
       if(String(s.name||'').toLowerCase().includes('turncost'))return false;
       if(String(s.instruction||'').toLowerCase().includes('turncost'))return false;
-      /* Unnamed straight-ahead steps are pure noise — drop them */
+      /* Unnamed straight-ahead segments carry no useful direction info — drop them */
       if(s.type===STRAIGHT&&!named(s.name))return false;
       return true;
     })
     .map(s=>{
-      const stripped=(s.instruction||'').replace(/^(Head\s+\w+(\s+on\s+)?|Turn\s+(left|right)\s+(onto\s+)?|Keep\s+(left|right)(\s+on\s+)?|Slight\s+(left|right)(\s+on\s+)?|Continue\s+on\s+|Go\s+straight(\s+on\s+)?|At\s+roundabout[^,]+,\s*take\s+exit\s+\d+\s*(onto\s+)?|Make\s+a\s+U-turn(\s+on\s+)?)/i,'').trim();
-      const street=named(s.name)?String(s.name).trim():named(stripped)?stripped:'path';
+      const nm=String(s.name||'').trim();
+      /* Named street → show it. Unnamed turn → show direction verb ("Turn right"). */
+      const street=named(nm)?nm:verb(s.instruction)||'continue';
       return {icon:ORS_ICONS[s.type]??'↑',street,distM:+s.distance};
     });
 }
@@ -1807,25 +1809,10 @@ function parseBrouterSteps(msgs){
   return steps;
 }
 
-/* ── Bike routing ──────────────────────────────────────────────────────────
-   Geometry:      ORS cycling-safe (hard-avoids arterials w/o bike infra)
-                  → falls back to BRouter safety if ORS fails or is absent
-   Turn-by-turn:  always BRouter — its messages carry real OSM street names;
-                  ORS step names are raw OSM numbers ("89", "0") that are not
-                  usable for directions.                                      */
+/* ── Bike routing: ORS cycling-safe → BRouter safety fallback ─────────────
+   ORS hard-avoids arterials without bike infrastructure.
+   BRouter safety is used as geometry + TBT fallback if ORS is absent/fails. */
 const clearTbt=legIdx=>{if(legIdx!=null){const el=document.getElementById(`tbt-${legIdx}`);if(el)el.remove();}};
-
-function fetchBrouterTbt(from,to,legIdx,epoch){
-  const url=`https://brouter.de/brouter?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=safety&alternativeidx=0&format=geojson`;
-  fetch(url)
-    .then(r=>{if(!r.ok)throw new Error(r.status);return r.json();})
-    .then(data=>{
-      if(selEpoch!==epoch)return;
-      if(!data.features?.length){clearTbt(legIdx);return;}
-      renderTurnByTurn(legIdx,parseBrouterSteps(data.features[0].properties?.messages||[]));
-    })
-    .catch(()=>clearTbt(legIdx));
-}
 
 function fetchBikeRoute(from,to,idx,epoch,opts,legIdx){
   if(ORS_KEY){
@@ -1838,7 +1825,10 @@ function fetchBikeRoute(from,to,idx,epoch,opts,legIdx){
         const coords=data.features[0].geometry.coordinates.map(([lng,lat])=>[lat,lng]);
         routeLayers[idx].remove();
         routeLayers[idx]=L.polyline(coords,opts).addTo(map);
-        if(legIdx!=null)fetchBrouterTbt(from,to,legIdx,epoch);
+        if(legIdx!=null){
+          const steps=data.features[0].properties?.segments?.[0]?.steps||[];
+          renderTurnByTurn(legIdx,parseOrsSteps(steps));
+        }
       })
       .catch(()=>fetchBrouterBikeRoute(from,to,idx,epoch,opts,legIdx));
   } else {
