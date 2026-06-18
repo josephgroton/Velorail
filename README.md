@@ -1,4 +1,4 @@
-# Spoke & Rail
+# Velorail
 
 A multimodal trip planner for the Philadelphia region that treats the bicycle as a
 first-class transit leg — because the fastest way across this city is usually a bike

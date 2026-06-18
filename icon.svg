@@ -1,6 +1,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" fill="#18140f"/>
-  <text x="256" y="140" font-family="Arial,sans-serif" font-size="100" font-weight="700" text-anchor="middle" fill="#faf6f0">spoke</text>
-  <text x="256" y="370" font-family="Arial,sans-serif" font-size="290" font-weight="700" text-anchor="middle" fill="#0d8f6a">&amp;</text>
-  <text x="256" y="470" font-family="Arial,sans-serif" font-size="100" font-weight="700" text-anchor="middle" fill="#faf6f0">rail</text>
+
+  <!-- Rail ties -->
+  <g stroke="#0d8f6a" stroke-width="14" stroke-linecap="butt">
+    <line x1="30"  y1="366" x2="30"  y2="414"/>
+    <line x1="108" y1="366" x2="108" y2="414"/>
+    <line x1="186" y1="366" x2="186" y2="414"/>
+    <line x1="264" y1="366" x2="264" y2="414"/>
+    <line x1="342" y1="366" x2="342" y2="414"/>
+    <line x1="420" y1="366" x2="420" y2="414"/>
+    <line x1="498" y1="366" x2="498" y2="414"/>
+  </g>
+
+  <!-- Rails -->
+  <line x1="0" y1="374" x2="512" y2="374" stroke="#0d8f6a" stroke-width="10"/>
+  <line x1="0" y1="398" x2="512" y2="398" stroke="#0d8f6a" stroke-width="10"/>
+
+  <!-- Road bike — wheels sit on top rail (y=374), so center y = 374-78 = 296 -->
+  <g stroke="#faf6f0" fill="none" stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- Wheels -->
+    <circle cx="148" cy="296" r="78" stroke-width="13"/>
+    <circle cx="364" cy="296" r="78" stroke-width="13"/>
+
+    <!-- Frame: BB=(256,318), seat-top=(220,166), head-top=(336,170), head-bot=(353,220) -->
+    <line x1="148" y1="296" x2="256" y2="318" stroke-width="9"/>   <!-- chain stay -->
+    <line x1="220" y1="166" x2="148" y2="296" stroke-width="9"/>   <!-- seat stay -->
+    <line x1="256" y1="318" x2="220" y2="166" stroke-width="11"/>  <!-- seat tube -->
+    <line x1="220" y1="166" x2="336" y2="170" stroke-width="11"/>  <!-- top tube -->
+    <line x1="336" y1="170" x2="353" y2="220" stroke-width="11"/>  <!-- head tube -->
+    <line x1="353" y1="220" x2="256" y2="318" stroke-width="11"/>  <!-- down tube -->
+    <line x1="353" y1="220" x2="364" y2="296" stroke-width="9"/>   <!-- fork -->
+
+    <!-- Drop handlebars (attached at head-tube top) -->
+    <line x1="316" y1="170" x2="356" y2="170" stroke-width="8"/>   <!-- bar top -->
+    <line x1="316" y1="170" x2="294" y2="196" stroke-width="8"/>   <!-- left drop -->
+    <line x1="356" y1="170" x2="378" y2="196" stroke-width="8"/>   <!-- right drop -->
+
+    <!-- Saddle -->
+    <line x1="220" y1="166" x2="218" y2="150" stroke-width="8"/>   <!-- seat post -->
+    <line x1="196" y1="148" x2="238" y2="148" stroke-width="8"/>   <!-- saddle -->
+
+  </g>
 </svg>
