@@ -1580,7 +1580,18 @@ function fetchCarRoute(A,B){
 function isPeak(){
   const t=SCHED_START??ARRIVE_MIN??(()=>{const n=new Date();return n.getHours()*60+n.getMinutes();})();
   const h=Math.floor(t/60)%24;
-  return (h>=6&&h<9)||(h>=15&&h<18);
+  const amPeak=h>=6&&h<9, pmPeak=h>=15&&h<18;
+  if(!amPeak&&!pmPeak)return false;
+  /* SEPTA bars bikes on INBOUND trains AM peak and OUTBOUND trains PM peak.
+     Use distance from Center City as a direction proxy: if B is farther from CC
+     than A the trip is outbound; if A is farther it is inbound. */
+  if(A&&B){
+    const CC={lat:39.952,lng:-75.165};
+    const outbound=hav(B,CC)>hav(A,CC);
+    if(amPeak&&outbound)return false;  /* AM outbound → bikes allowed */
+    if(pmPeak&&!outbound)return false; /* PM inbound  → bikes allowed */
+  }
+  return true;
 }
 function compute(){
   if(!A||!B)return;
@@ -1624,7 +1635,13 @@ function compute(){
     return ra.min-rb.min;
   });
   let html='';
-  if(peak)html+=`<div class="note" style="color:var(--bad);border-color:rgba(181,32,32,.3)">Peak hours: SEPTA bars bikes on Metro and Regional Rail. Carry options may be unavailable.</div>`;
+  if(peak){
+    const CC={lat:39.952,lng:-75.165};
+    const outbound=A&&B&&hav(B,CC)>hav(A,CC);
+    const h=Math.floor(((SCHED_START??ARRIVE_MIN??((()=>{const n=new Date();return n.getHours()*60+n.getMinutes();})())))/60)%24;
+    const dir=h<12?'inbound (suburb → city)':'outbound (city → suburb)';
+    html+=`<div class="note" style="color:var(--bad);border-color:rgba(181,32,32,.3)">Peak hours: SEPTA bars bikes on ${dir} trains right now. Carry options may be unavailable.</div>`;
+  }
   for(const sc of sorted) html+=card(sc,itins[sc.id],base);
   if(PROF.hasBike&&hav(A,B)*CIRCUITY>PROF.bikeMax)
     html+=`<div class="note">Bike-only not shown: ${(hav(A,B)*CIRCUITY).toFixed(1)} mi exceeds your ${PROF.bikeMax} mi max. Tap ≡ to adjust.</div>`;
