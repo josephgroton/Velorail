@@ -1342,7 +1342,7 @@ $('aInput').addEventListener('blur',()=>setTimeout(()=>closeSugg('aSugg'),150));
 $('bInput').addEventListener('blur',()=>setTimeout(()=>closeSugg('bSugg'),150));
 for(const id of ['hasBike','carryOK','indegoPlan'])$(id).addEventListener('change',()=>{saveProfile();compute();});
 $('bikeMax').addEventListener('change',()=>{saveProfile();compute();});
-$('departInput').addEventListener('change',()=>{LEAVE_NOW=false;$('leaveNow').classList.remove('active');parseArriveMin();});
+$('departInput').addEventListener('change',()=>{LEAVE_NOW=false;$('leaveNow').classList.remove('active');parseArriveMin();compute();});
 $('clearDepart').addEventListener('click',()=>{$('departInput').value='';ARRIVE_MIN=null;SCHED_START=null;LEAVE_NOW=false;$('leaveNow').classList.remove('active');compute();});
 $('leaveNow').addEventListener('click',()=>{LEAVE_NOW=!LEAVE_NOW;if(LEAVE_NOW){$('departInput').value='';ARRIVE_MIN=null;}$('leaveNow').classList.toggle('active',LEAVE_NOW);compute();});
 /* ── GTFS integration ────────────────────────────────────────────────── */
@@ -1845,6 +1845,7 @@ function applyDark(dark){
 function toggleDark(){applyDark(!document.documentElement.classList.contains('dark'));}
 if(localStorage.getItem('vrDark')==='1')applyDark(true);
 loadProfile();
+parseArriveMin(); /* sync any browser-remembered time value into ARRIVE_MIN on page load */
 </script>
 </body>
 </html>
