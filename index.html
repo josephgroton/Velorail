@@ -1101,11 +1101,18 @@ let markerLayer=L.markerClusterGroup({
   maxClusterRadius:45,showCoverageOnHover:false,disableClusteringAtZoom:15,
   iconCreateFunction:c=>L.divIcon({html:`<div class="cluster-ic">${c.getChildCount()}</div>`,className:'',iconSize:[26,26],iconAnchor:[13,13]})
 }).addTo(map);
+let dockLayer=L.layerGroup(); /* added/removed from map based on zoom — hidden below 13 */
+function updateDockVisibility(){
+  const show=map.getZoom()>=13;
+  if(show&&!map.hasLayer(dockLayer))dockLayer.addTo(map);
+  else if(!show&&map.hasLayer(dockLayer))map.removeLayer(dockLayer);
+}
+map.on('zoomend',updateDockVisibility);
 let CITY_VIEWBOX='-75.4,39.8,-74.9,40.2';
 function dimmNetwork(){const p=map.getPane('network');if(p)p.style.opacity='0.07';}
 function restoreNetwork(){const p=map.getPane('network');if(p)p.style.opacity='';}
 function drawNetwork(){
-  networkLayer.clearLayers(); markerLayer.clearLayers();
+  networkLayer.clearLayers(); markerLayer.clearLayers(); dockLayer.clearLayers();
   for(const [ln,ids] of Object.entries(SEQ)){
     L.polyline(ids.map(id=>[STATIONS[id].lat,STATIONS[id].lng]),
       {color:LINES[ln].color,weight:LINES[ln].rr?2:3,opacity:LINES[ln].rr?.45:.55,pane:'network'}).addTo(networkLayer);
@@ -1123,14 +1130,14 @@ function drawNetwork(){
     const dkC=av==null?'#12a37a':av>=5?'#12a37a':av>0?'#c4830a':'#b52020';
     const dkTip=av!=null?`${dk.name}  -  ${av} bike${av!==1?'s':''} available`:dk.name;
     L.marker([dk.lat,dk.lng],{icon:L.divIcon({className:'',html:`<div class="dock-ic" style="width:8px;height:8px;background:${dkC}"></div>`,iconSize:[8,8],iconAnchor:[4,4]}),keyboard:false,pane:'network'})
-      .addTo(markerLayer).bindTooltip(dkTip);
+      .addTo(dockLayer).bindTooltip(dkTip);
   }
   for(const bw of BIKEWAYS){
     L.polyline(bw.coords,{color:'#2d7a3a',weight:2.5,opacity:0.55,dashArray:'5 5',interactive:true,pane:'network'})
       .addTo(networkLayer).bindTooltip(bw.name,{sticky:true});
   }
 }
-drawNetwork();
+drawNetwork();updateDockVisibility();
 patchGTFS(); /* apply real SEPTA coords + segment times + headways on initial load */
 async function loadIndegoLive(){
   try{
@@ -1149,7 +1156,7 @@ async function loadIndegoLive(){
       is_renting:!!stMap[s.station_id]?.is_renting
     }));
     DOCKS=live; PHILLY_DATA.DOCKS=live;
-    drawNetwork();
+    drawNetwork();updateDockVisibility();
     if(typeof A!=='undefined'&&A&&B)compute();
   }catch(e){}
 }
@@ -1161,7 +1168,7 @@ function loadCity(key){
   TRANSFERS=cd.TRANSFERS; DOCKS=cd.DOCKS; BIKEWAYS=cd.BIKEWAYS; PRESETS=cd.PRESETS;
   METRO_FARE=cd.METRO_FARE; METRO_FARE_NAME=cd.FARE_NAME;
   CITY_VIEWBOX=cd.viewbox;
-  drawNetwork();
+  drawNetwork();updateDockVisibility();
   if(!key||key==='philly')patchGTFS();
   map.setView(cd.center,cd.zoom);
   /* update static text */
