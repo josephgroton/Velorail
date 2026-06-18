@@ -109,6 +109,7 @@
   .leaflet-container{font-family:var(--body)}
   .stn-ic{border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
   .dock-ic{border-radius:2px;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
+  .cluster-ic{width:26px;height:26px;background:var(--ink);color:#fff;font-family:var(--body);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,.6);}
   .ab-ic{display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--ink);color:#fff;font:700 12px/1 var(--mono);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
   /* ---------- route detail panel ---------- */
   .rd-panel{position:absolute;left:0;top:0;bottom:0;width:320px;background:var(--panel);border-right:2px solid var(--line);z-index:900;display:flex;flex-direction:column;box-shadow:4px 0 20px rgba(0,0,0,.18);transform:translateX(-105%);transition:transform .22s cubic-bezier(.4,0,.2,1);pointer-events:none}
@@ -160,7 +161,7 @@
     </header>
     <div id="proto-banner">
       <div class="proto-label">PROTO<br>TYPE</div>
-      <div class="proto-text"><b>Early prototype  -  not for navigation.</b> Fares marked ~ are estimated. Transit times use average headways, not live schedules. Bike-aboard rules are real but verify before a time-sensitive trip.</div>
+      <div class="proto-text"><b>Early prototype: not for navigation.</b> Fares marked ~ are estimated. Transit times use average headways, not live schedules. Bike-aboard rules are real but verify before a time-sensitive trip.</div>
       <button id="proto-close" onclick="dismissProto()" title="Dismiss">×</button>
     </div>
     <div id="controls">
@@ -188,9 +189,10 @@
           <ul class="suggestions" id="bSugg" role="listbox"></ul>
         </div>
         <div class="ep" style="gap:8px;padding:5px 9px">
-          <span style="font-family:var(--display);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.11em;color:var(--faint);white-space:nowrap">Depart at</span>
-          <input type="time" id="departInput" style="flex:1;background:transparent;border:none;outline:none;font:13px var(--body);color:var(--text);min-width:0;padding:0" aria-label="Departure time">
-          <button id="clearDepart" style="background:none;border:none;color:var(--faint);font-size:14px;padding:0 2px;cursor:pointer;line-height:1" title="Clear departure time"> - </button>
+          <span style="font-family:var(--display);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.11em;color:var(--faint);white-space:nowrap">Arrive by</span>
+          <button id="nowDepart" style="background:none;border:1px solid var(--line);color:var(--dim);font-family:var(--body);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 6px;cursor:pointer;line-height:1.4;white-space:nowrap" title="Set to now">now</button>
+          <input type="time" id="departInput" style="flex:1;background:transparent;border:none;outline:none;font:13px var(--body);color:var(--text);min-width:0;padding:0" aria-label="Arrival time">
+          <button id="clearDepart" style="background:none;border:none;color:var(--faint);font-size:14px;padding:0 2px;cursor:pointer;line-height:1" title="Clear">×</button>
         </div>
       </div>
       <div class="prof" id="prof">
@@ -223,6 +225,7 @@
   </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
 <script src="data/septa_gtfs.js"></script>
 <script>
 /* ================= NETWORK DATA ================= */
@@ -936,7 +939,7 @@ function route(scenario,peak,A,B){
   const startBike=(scenario==='carry'||scenario==='lock');
   const start='O#'+(startBike?1:0);
   const dist={[start]:0}, prev={}, done=new Set(), pq=[[0,start]];
-  const ctx={scenario,peak,A,B,startMin:DEPART_MIN};
+  const ctx={scenario,peak,A,B,startMin:SCHED_START};
   while(pq.length){
     let bi=0;for(let i=1;i<pq.length;i++)if(pq[i][0]<pq[bi][0])bi=i;
     const [d,u]=pq.splice(bi,1)[0];
@@ -1093,11 +1096,16 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
 map.createPane('network');
 map.getPane('network').style.zIndex='350'; /* below route polylines (overlayPane=400) */
 let networkLayer=L.layerGroup().addTo(map);
+let markerLayer=L.markerClusterGroup({
+  pane:'network',clusterPane:'network',
+  maxClusterRadius:45,showCoverageOnHover:false,disableClusteringAtZoom:15,
+  iconCreateFunction:c=>L.divIcon({html:`<div class="cluster-ic">${c.getChildCount()}</div>`,className:'',iconSize:[26,26],iconAnchor:[13,13]})
+}).addTo(map);
 let CITY_VIEWBOX='-75.4,39.8,-74.9,40.2';
 function dimmNetwork(){const p=map.getPane('network');if(p)p.style.opacity='0.07';}
 function restoreNetwork(){const p=map.getPane('network');if(p)p.style.opacity='';}
 function drawNetwork(){
-  networkLayer.clearLayers();
+  networkLayer.clearLayers(); markerLayer.clearLayers();
   for(const [ln,ids] of Object.entries(SEQ)){
     L.polyline(ids.map(id=>[STATIONS[id].lat,STATIONS[id].lng]),
       {color:LINES[ln].color,weight:LINES[ln].rr?2:3,opacity:LINES[ln].rr?.45:.55,pane:'network'}).addTo(networkLayer);
@@ -1108,14 +1116,14 @@ function drawNetwork(){
     const c=LINES[s.lines[0]]?.color||'#888';
     const sz=s.lines.length>1?11:9;
     L.marker([s.lat,s.lng],{icon:L.divIcon({className:'',html:`<div class="stn-ic" style="width:${sz}px;height:${sz}px;background:${c}"></div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]}),keyboard:false,pane:'network'})
-      .addTo(networkLayer).bindTooltip(`${s.name}  -  ${s.lines.map(l=>LINES[l]?.name||l).join(' / ')}`);
+      .addTo(markerLayer).bindTooltip(`${s.name}  -  ${s.lines.map(l=>LINES[l]?.name||l).join(' / ')}`);
   }
   for(const dk of DOCKS){
     const av=dk.bikes_available;
     const dkC=av==null?'#12a37a':av>=5?'#12a37a':av>0?'#c4830a':'#b52020';
     const dkTip=av!=null?`${dk.name}  -  ${av} bike${av!==1?'s':''} available`:dk.name;
     L.marker([dk.lat,dk.lng],{icon:L.divIcon({className:'',html:`<div class="dock-ic" style="width:8px;height:8px;background:${dkC}"></div>`,iconSize:[8,8],iconAnchor:[4,4]}),keyboard:false,pane:'network'})
-      .addTo(networkLayer).bindTooltip(dkTip);
+      .addTo(markerLayer).bindTooltip(dkTip);
   }
   for(const bw of BIKEWAYS){
     L.polyline(bw.coords,{color:'#2d7a3a',weight:2.5,opacity:0.55,dashArray:'5 5',interactive:true,pane:'network'})
@@ -1297,8 +1305,9 @@ $('profHead').addEventListener('click',()=>{
 });
 for(const id of ['hasBike','carryOK','indegoPlan'])$(id).addEventListener('change',()=>{compute();setTimeout(collapseProf,350);});
 $('bikeMax').addEventListener('change',compute);
-$('departInput').addEventListener('change',()=>{parseDepartMin();compute();});
-$('clearDepart').addEventListener('click',()=>{$('departInput').value='';DEPART_MIN=null;compute();});
+$('departInput').addEventListener('change',()=>{parseArriveMin();compute();});
+$('clearDepart').addEventListener('click',()=>{$('departInput').value='';ARRIVE_MIN=null;SCHED_START=null;compute();});
+$('nowDepart').addEventListener('click',()=>{const n=new Date();$('departInput').value=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;parseArriveMin();compute();});
 /* ── GTFS integration ────────────────────────────────────────────────── */
 function patchGTFS(){
   const gtfs=window.SEPTA_GTFS;if(!gtfs)return;
@@ -1330,11 +1339,12 @@ function nextDep(stationId,lineId,afterMin){
   return null;
 }
 /* Parse HH:MM time input → minutes from midnight */
-let DEPART_MIN=null; /* null = use average headways */
-function parseDepartMin(){
+let ARRIVE_MIN=null;  /* desired arrival time in minutes from midnight; null = use average headways */
+let SCHED_START=null; /* effective departure, computed as ARRIVE_MIN - estimated route time */
+function parseArriveMin(){
   const v=document.getElementById('departInput').value;
-  if(!v){DEPART_MIN=null;return;}
-  const[h,m]=v.split(':').map(Number);DEPART_MIN=h*60+m;
+  if(!v){ARRIVE_MIN=null;SCHED_START=null;return;}
+  const[h,m]=v.split(':').map(Number);ARRIVE_MIN=h*60+m;
 }
 function clearRoutes(){routeLayers.forEach(l=>l.remove());routeLayers=[];hideDetail();}
 function hideDetail(){const p=document.getElementById('routeDetail');if(p)p.classList.remove('open');restoreNetwork();}
@@ -1463,6 +1473,12 @@ function compute(){
     selectIntercity(intercityTrip);
     return;
   }
+  /* Two-pass arrive-by: estimate departure = arrive time - headway-only route time */
+  if(ARRIVE_MIN!==null){
+    SCHED_START=null;
+    const rough=route('baseline',peak,A,B);
+    SCHED_START=rough?Math.max(0,ARRIVE_MIN-Math.round(rough.min)):ARRIVE_MIN;
+  }else{SCHED_START=null;}
   const base=route('baseline',peak,A,B);
   for(const sc of ACTIVE){
     let r;
@@ -1512,14 +1528,13 @@ function card(sc,r,base){
   const costChip=`<span class="cost" title="${tc.items.join(' + ')||'no fares'}">${tc.cost===0?'$0':(tc.est?'~':'')+'$'+tc.cost.toFixed(2)}</span>`;
   /* departure chip  -  show next real train time if user set a depart-at time */
   let depLine='';
-  if(DEPART_MIN!==null&&r){
+  if(ARRIVE_MIN!==null&&SCHED_START!==null&&r){
     const transit=r.legs.find(l=>l.mode==='ride'&&l.line);
     if(transit){
-      /* estimate when rider reaches the boarding platform */
       const walkBike=r.legs.slice(0,r.legs.indexOf(transit)).reduce((s,l)=>s+l.min,0);
-      const atPlatform=DEPART_MIN+walkBike;
+      const atPlatform=SCHED_START+walkBike;
       const dep=nextDep(transit.from?.id||transit.board,transit.line,atPlatform);
-      if(dep!==null)depLine=`<div class="dep">Board <b>${LINES[transit.line].name}</b> at <b>${fmtHHMM(dep)}</b></div>`;
+      if(dep!==null)depLine=`<div class="dep">Board <b>${LINES[transit.line].name}</b> at <b>${fmtHHMM(dep)}</b> · arrive by <b>${fmtHHMM(ARRIVE_MIN)}</b></div>`;
     }
   }
   let availHint='';
