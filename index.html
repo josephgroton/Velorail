@@ -1811,60 +1811,30 @@ function parseBrouterSteps(msgs){
 }
 
 /* ── Bike routing ──────────────────────────────────────────────────────────
-   Geometry:      ORS cycling-safe (avoids arterials w/o bike infra)
-                  → BRouter safety fallback if ORS absent/fails
-   Turn-by-turn:  OSRM routed-bike (same service as walk TBT, proven reliable)
-                  → tbtUnavailable message if OSRM fails                      */
+   Geometry + TBT: ORS POST cycling-safe/geojson with instructions:true
+                   → BRouter safety fallback if ORS absent/fails            */
 const clearTbt=legIdx=>{if(legIdx!=null)tbtUnavailable(legIdx);};
-
-/* OSRM step maneuver type+modifier → arrow icon */
-const OSRM_ICONS={
-  'turn left':'←','turn right':'→',
-  'turn sharp left':'↙','turn sharp right':'↘',
-  'turn slight left':'↖','turn slight right':'↗',
-  'new name left':'↖','new name right':'↗',
-  'fork left':'↖','fork right':'↗',
-  'end of road left':'↖','end of road right':'↗',
-  'roundabout':'↻','rotary':'↻','exit roundabout':'↻','exit rotary':'↻',
-  'u-turn':'↩',
-};
-function parseOsrmBikeSteps(steps){
-  return steps
-    .filter(s=>s.distance>10&&s.maneuver?.type!=='depart'&&s.maneuver?.type!=='arrive')
-    .map(s=>{
-      const t=(s.maneuver?.type||'').toLowerCase();
-      const m=(s.maneuver?.modifier||'').toLowerCase();
-      const icon=OSRM_ICONS[m?`${t} ${m}`:t]||OSRM_ICONS[t]||'↑';
-      const nm=(s.name||'').trim();
-      const street=nm&&!/^\d+$/.test(nm)?nm:m||t||'continue';
-      return {icon,street,distM:s.distance};
-    });
-}
-function fetchOsrmBikeTbt(from,to,legIdx,epoch){
-  fetch(`https://routing.openstreetmap.de/routed-bike/route/v1/bike/${from.lng},${from.lat};${to.lng},${to.lat}?overview=false&steps=true`)
-    .then(r=>r.json())
-    .then(data=>{
-      if(selEpoch!==epoch)return;
-      const steps=data.routes?.[0]?.legs?.[0]?.steps||[];
-      renderTurnByTurn(legIdx,parseOsrmBikeSteps(steps));
-    })
-    .catch(()=>tbtUnavailable(legIdx));
-}
 
 function fetchBikeRoute(from,to,idx,epoch,opts,legIdx){
   if(ORS_KEY){
-    const url=`https://api.openrouteservice.org/v2/directions/cycling-safe?api_key=${ORS_KEY}&start=${from.lng},${from.lat}&end=${to.lng},${to.lat}`;
-    fetch(url,{headers:{'Accept':'application/json, application/geo+json'}})
-      .then(r=>{if(!r.ok)throw new Error(r.status);return r.json();})
-      .then(data=>{
-        if(selEpoch!==epoch||!routeLayers[idx])return;
-        if(!data.features?.length){fetchBrouterBikeRoute(from,to,idx,epoch,opts,legIdx);return;}
-        const coords=data.features[0].geometry.coordinates.map(([lng,lat])=>[lat,lng]);
-        routeLayers[idx].remove();
-        routeLayers[idx]=L.polyline(coords,opts).addTo(map);
-        if(legIdx!=null)fetchOsrmBikeTbt(from,to,legIdx,epoch);
-      })
-      .catch(()=>fetchBrouterBikeRoute(from,to,idx,epoch,opts,legIdx));
+    fetch('https://api.openrouteservice.org/v2/directions/cycling-safe/geojson',{
+      method:'POST',
+      headers:{'Authorization':ORS_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({coordinates:[[from.lng,from.lat],[to.lng,to.lat]],instructions:true})
+    })
+    .then(r=>{if(!r.ok)throw new Error(r.status);return r.json();})
+    .then(data=>{
+      if(selEpoch!==epoch||!routeLayers[idx])return;
+      if(!data.features?.length){fetchBrouterBikeRoute(from,to,idx,epoch,opts,legIdx);return;}
+      const coords=data.features[0].geometry.coordinates.map(([lng,lat])=>[lat,lng]);
+      routeLayers[idx].remove();
+      routeLayers[idx]=L.polyline(coords,opts).addTo(map);
+      if(legIdx!=null){
+        const steps=data.features[0].properties?.segments?.[0]?.steps||[];
+        renderTurnByTurn(legIdx,parseOrsSteps(steps));
+      }
+    })
+    .catch(()=>fetchBrouterBikeRoute(from,to,idx,epoch,opts,legIdx));
   } else {
     fetchBrouterBikeRoute(from,to,idx,epoch,opts,legIdx);
   }
