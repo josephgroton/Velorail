@@ -1694,7 +1694,7 @@ function renderTurnByTurn(legIdx,steps){
 function fetchOsrmRoute(profile,from,to,idx,epoch,opts,legIdx){
   const base=profile==='foot'
     ?`https://routing.openstreetmap.de/routed-foot/route/v1/foot/${from.lng},${from.lat};${to.lng},${to.lat}`
-    :`https://router.project-osrm.org/route/v1/${profile}/${from.lng},${from.lat};${to.lng},${to.lat}`;
+    :`https://routing.openstreetmap.de/routed-bike/route/v1/bike/${from.lng},${from.lat};${to.lng},${to.lat}`;
   const qs=profile==='bike'?'?overview=full&geometries=geojson&steps=true':'?overview=full&geometries=geojson';
   fetch(base+qs)
     .then(r=>r.json())
