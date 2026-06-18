@@ -1779,13 +1779,14 @@ function parseOrsSteps(steps){
     });
 }
 
-/* BRouter fallback step parser */
+/* BRouter step parser — messages format: [lon,lat,ele,dist_m,speed,difficulty,comment] */
 function parseBrouterSteps(msgs){
+  const named=n=>{const s=String(n||'').trim();return s&&s!=='-'&&!/^\d+$/.test(s);};
   const steps=[];
   for(let i=0;i<msgs.length-1;i++){
     const m=msgs[i],next=msgs[i+1];
     const text=(m[6]||'').trim();
-    if(!text)continue;
+    if(!text||text.toLowerCase().includes('turncost'))continue;
     const distM=parseFloat(next[3])-parseFloat(m[3]);
     if(distM<5)continue;
     const l=text.toLowerCase();
@@ -1798,17 +1799,33 @@ function parseBrouterSteps(msgs){
     else if(l.includes('right'))icon='↗';
     else if(l.includes('roundabout')||l.includes('rotary'))icon='↻';
     else if(l.includes('u-turn'))icon='↩';
-    const street=text.replace(/^(turn\s+(left|right)|keep\s+(left|right)|slight\s+(left|right)|continue|proceed|go\s+straight|merge|exit|take|u-turn|roundabout[^:]*:?\s*)\s*(onto\s+|on\s+|via\s+)?/i,'').trim()||text;
+    const raw=text.replace(/^(turn\s+(left|right)|keep\s+(left|right)|slight\s+(left|right)|continue|proceed|go\s+straight|merge|exit|take|u-turn|roundabout[^:]*:?\s*)\s*(onto\s+|on\s+|via\s+)?/i,'').trim();
+    const street=named(raw)?raw:named(text)?text:'path';
+    if(icon==='↑'&&street==='path')continue; /* unnamed straight-aheads add no info */
     steps.push({icon,street,distM});
   }
   return steps;
 }
 
-/* ── Bike routing: ORS cycling-safe (preferred) → BRouter safety (fallback) ─
-   ORS hard-avoids arterials and highways without bike infrastructure via LTS
-   weighting tuned for North American cities. BRouter safety penalises them
-   but may still route on primary roads when no alternative exists.           */
+/* ── Bike routing ──────────────────────────────────────────────────────────
+   Geometry:      ORS cycling-safe (hard-avoids arterials w/o bike infra)
+                  → falls back to BRouter safety if ORS fails or is absent
+   Turn-by-turn:  always BRouter — its messages carry real OSM street names;
+                  ORS step names are raw OSM numbers ("89", "0") that are not
+                  usable for directions.                                      */
 const clearTbt=legIdx=>{if(legIdx!=null){const el=document.getElementById(`tbt-${legIdx}`);if(el)el.remove();}};
+
+function fetchBrouterTbt(from,to,legIdx,epoch){
+  const url=`https://brouter.de/brouter?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=safety&alternativeidx=0&format=geojson`;
+  fetch(url)
+    .then(r=>{if(!r.ok)throw new Error(r.status);return r.json();})
+    .then(data=>{
+      if(selEpoch!==epoch)return;
+      if(!data.features?.length){clearTbt(legIdx);return;}
+      renderTurnByTurn(legIdx,parseBrouterSteps(data.features[0].properties?.messages||[]));
+    })
+    .catch(()=>clearTbt(legIdx));
+}
 
 function fetchBikeRoute(from,to,idx,epoch,opts,legIdx){
   if(ORS_KEY){
@@ -1818,14 +1835,10 @@ function fetchBikeRoute(from,to,idx,epoch,opts,legIdx){
       .then(data=>{
         if(selEpoch!==epoch||!routeLayers[idx])return;
         if(!data.features?.length){fetchBrouterBikeRoute(from,to,idx,epoch,opts,legIdx);return;}
-        const feat=data.features[0];
-        const coords=feat.geometry.coordinates.map(([lng,lat])=>[lat,lng]);
+        const coords=data.features[0].geometry.coordinates.map(([lng,lat])=>[lat,lng]);
         routeLayers[idx].remove();
         routeLayers[idx]=L.polyline(coords,opts).addTo(map);
-        if(legIdx!=null){
-          const steps=feat.properties?.segments?.[0]?.steps||[];
-          renderTurnByTurn(legIdx,parseOrsSteps(steps));
-        }
+        if(legIdx!=null)fetchBrouterTbt(from,to,legIdx,epoch);
       })
       .catch(()=>fetchBrouterBikeRoute(from,to,idx,epoch,opts,legIdx));
   } else {
