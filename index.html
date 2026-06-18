@@ -1759,85 +1759,51 @@ function tbtUnavailable(legIdx){
   if(el)el.innerHTML='<span class="tbt-loading">Directions unavailable for this segment</span>';
 }
 
-/* ORS cycling-safe step types → arrow icons */
-const ORS_ICONS=['←','→','↙','↘','↖','↗','↑','↻','↻','↩','','↑','↖','↗'];
-function parseOrsSteps(steps){
+/* OSRM cycling step maneuver → arrow icon */
+const OSRM_ICONS={
+  'turn left':'←','turn right':'→',
+  'turn sharp left':'↙','turn sharp right':'↘',
+  'turn slight left':'↖','turn slight right':'↗',
+  'new name left':'↖','new name right':'↗',
+  'fork left':'↖','fork right':'↗',
+  'end of road left':'↖','end of road right':'↗',
+  'roundabout':'↻','rotary':'↻','exit roundabout':'↻','exit rotary':'↻',
+  'u-turn':'↩',
+};
+function parseOsrmSteps(steps){
   return steps
-    .filter(s=>{
-      const d=+s.distance;
-      if(!isFinite(d)||d<=10)return false;       /* too short to be useful */
-      if(s.type===10||s.type===11)return false;  /* arrive/depart bookends */
-      const ins=String(s.instruction||'').toLowerCase();
-      if(ins.includes('turncost'))return false;  /* ORS internal artifact */
-      return true;
-    })
+    .filter(s=>s.distance>10&&s.maneuver?.type!=='depart'&&s.maneuver?.type!=='arrive')
     .map(s=>{
-      /* Prefer the street name; if blank/dash/bare-number fall back to instruction verb */
-      const nm=String(s.name||'').trim();
-      const useName=nm&&nm!=='-'&&nm!=='0'&&!/^\d+$/.test(nm);
-      const street=useName?nm
-        :(s.instruction||'').replace(/^(Head\s+\w+(\s+on\s+)?|Turn\s+(left|right)\s+(onto\s+)?|Keep\s+(left|right)(\s+on\s+)?|Slight\s+(left|right)(\s+on\s+)?|Continue\s+on\s+|Go\s+straight(\s+on\s+)?|At\s+roundabout[^,]+,\s*take\s+exit\s+\d+\s*(onto\s+)?|Make\s+a\s+U-turn(\s+on\s+)?)/i,'').trim()||
-          (s.instruction||'').replace(/\s+on\s+.*$/i,'').trim()||'continue';
-      return {icon:ORS_ICONS[s.type]??'↑',street,distM:+s.distance};
+      const t=(s.maneuver?.type||'').toLowerCase();
+      const m=(s.maneuver?.modifier||'').toLowerCase();
+      const icon=OSRM_ICONS[m?`${t} ${m}`:t]||OSRM_ICONS[t]||'↑';
+      const nm=(s.name||'').trim();
+      const street=nm&&!/^\d+$/.test(nm)?nm:m||t||'continue';
+      return {icon,street,distM:s.distance};
     });
 }
 
-/* BRouter step parser — messages format: [lon,lat,ele,dist_m,speed,difficulty,comment] */
-function parseBrouterSteps(msgs){
-  const named=n=>{const s=String(n||'').trim();return s&&s!=='-'&&!/^\d+$/.test(s);};
-  const steps=[];
-  for(let i=0;i<msgs.length-1;i++){
-    const m=msgs[i],next=msgs[i+1];
-    const text=(m[6]||'').trim();
-    if(!text||text.toLowerCase().includes('turncost'))continue;
-    const distM=parseFloat(next[3])-parseFloat(m[3]);
-    if(distM<5)continue;
-    const l=text.toLowerCase();
-    let icon='↑';
-    if(l.includes('turn left'))icon='←';
-    else if(l.includes('turn right'))icon='→';
-    else if(l.includes('sharp left'))icon='↙';
-    else if(l.includes('sharp right'))icon='↘';
-    else if(l.includes('left'))icon='↖';
-    else if(l.includes('right'))icon='↗';
-    else if(l.includes('roundabout')||l.includes('rotary'))icon='↻';
-    else if(l.includes('u-turn'))icon='↩';
-    const raw=text.replace(/^(turn\s+(left|right)|keep\s+(left|right)|slight\s+(left|right)|continue|proceed|go\s+straight|merge|exit|take|u-turn|roundabout[^:]*:?\s*)\s*(onto\s+|on\s+|via\s+)?/i,'').trim();
-    const street=named(raw)?raw:named(text)?text:'path';
-    if(icon==='↑'&&street==='path')continue; /* unnamed straight-aheads add no info */
-    steps.push({icon,street,distM});
-  }
-  return steps;
-}
-
 /* ── Bike routing ──────────────────────────────────────────────────────────
-   Geometry + TBT: ORS POST cycling-safe/geojson with instructions:true
-                   → BRouter safety fallback if ORS absent/fails            */
+   Geometry + TBT: OSRM cycling at router.project-osrm.org (bike-specific
+                   routing, respects bike one-ways, returns street names)
+                   → BRouter geometry-only fallback if OSRM fails           */
 const clearTbt=legIdx=>{if(legIdx!=null)tbtUnavailable(legIdx);};
 
 function fetchBikeRoute(from,to,idx,epoch,opts,legIdx){
-  if(ORS_KEY){
-    fetch('https://api.openrouteservice.org/v2/directions/cycling-safe/geojson',{
-      method:'POST',
-      headers:{'Authorization':ORS_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify({coordinates:[[from.lng,from.lat],[to.lng,to.lat]],instructions:true})
-    })
-    .then(r=>{if(!r.ok)throw new Error(r.status);return r.json();})
+  fetch(`https://router.project-osrm.org/route/v1/cycling/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson&steps=true`)
+    .then(r=>r.json())
     .then(data=>{
       if(selEpoch!==epoch||!routeLayers[idx])return;
-      if(!data.features?.length){fetchBrouterBikeRoute(from,to,idx,epoch,opts,legIdx);return;}
-      const coords=data.features[0].geometry.coordinates.map(([lng,lat])=>[lat,lng]);
+      if(data.code!=='Ok'||!data.routes?.length){fetchBrouterBikeRoute(from,to,idx,epoch,opts,legIdx);return;}
+      const coords=data.routes[0].geometry.coordinates.map(([lng,lat])=>[lat,lng]);
       routeLayers[idx].remove();
       routeLayers[idx]=L.polyline(coords,opts).addTo(map);
       if(legIdx!=null){
-        const steps=data.features[0].properties?.segments?.[0]?.steps||[];
-        renderTurnByTurn(legIdx,parseOrsSteps(steps));
+        const steps=data.routes[0].legs[0].steps||[];
+        renderTurnByTurn(legIdx,parseOsrmSteps(steps));
       }
     })
     .catch(()=>fetchBrouterBikeRoute(from,to,idx,epoch,opts,legIdx));
-  } else {
-    fetchBrouterBikeRoute(from,to,idx,epoch,opts,legIdx);
-  }
 }
 
 function fetchBrouterBikeRoute(from,to,idx,epoch,opts,legIdx){
@@ -1851,7 +1817,7 @@ function fetchBrouterBikeRoute(from,to,idx,epoch,opts,legIdx){
       const coords=feat.geometry.coordinates.map(([lng,lat])=>[lat,lng]);
       routeLayers[idx].remove();
       routeLayers[idx]=L.polyline(coords,opts).addTo(map);
-      if(legIdx!=null)renderTurnByTurn(legIdx,parseBrouterSteps(feat.properties?.messages||[]));
+      if(legIdx!=null)tbtUnavailable(legIdx);
     })
     .catch(()=>clearTbt(legIdx));
 }
