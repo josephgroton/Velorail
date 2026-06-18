@@ -142,7 +142,7 @@
   .rd-bigtime{font-family:var(--mono);font-size:32px;font-weight:700}
   .rd-close{position:absolute;top:10px;right:10px;background:none;border:none;font-size:22px;cursor:pointer;color:var(--dim);line-height:1;padding:4px 7px}
   .rd-close:hover{color:var(--text)}
-  .rd-body{flex:1;overflow-y:auto;padding:14px 18px 24px}
+  .rd-body{flex:1;overflow-y:auto;padding:14px 18px 24px;min-height:0}
   .rd-addrs{font-size:12px;color:var(--dim);margin-bottom:14px;border-bottom:1px solid var(--panel2);padding-bottom:12px;display:flex;flex-direction:column;gap:5px}
   .rd-addr-row{display:flex;align-items:flex-start;gap:7px}
   .rd-addr-row b{font-family:var(--mono);font-size:10px;color:#fff;background:var(--ink);border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
@@ -201,8 +201,6 @@
         <label class="ptitle" style="white-space:nowrap">City</label>
         <select id="citySelect" style="flex:1">
           <option value="philly">Philadelphia (SEPTA + PATCO)</option>
-          <option value="boston">Boston (MBTA)</option>
-          <option value="nyc">New York City (MTA)</option>
         </select>
       </div>
       <div class="row">
@@ -544,7 +542,9 @@ let PRESETS = {
   'bella-fernrock':{a:[39.9395,-75.1560,'Bella Vista'], b:[40.0420,-75.1330,'Fern Rock'], label:'Bella Vista → Fern Rock'},
   'grad-frankford':{a:[39.9400,-75.1810,'Graduate Hospital'], b:[40.0210,-75.0820,'Frankford'], label:'Graduate Hospital → Frankford'},
   'epassyunk-flourtown':{a:[39.9285,-75.1625,'East Passyunk Ave'], b:[40.1005,-75.2135,'Flourtown, PA'], label:'East Passyunk → Flourtown, PA'},
-  'mifflin-westpoint':{a:[39.9248,-75.1740,'1212 Mifflin St, Philadelphia'], b:[41.3920,-73.9565,'West Point, NY'], intercity:'westpoint', label:'Mifflin St → West Point, NY [3 agencies + ferry]', group:'Intercity'}
+  'mifflin-westpoint':  {a:[39.9248,-75.1740,'1212 Mifflin St, Philadelphia'], b:[41.3920,-73.9565,'West Point, NY'],        intercity:'westpoint',    label:'Mifflin St → West Point, NY [3 agencies + ferry]'},
+  'mifflin-nyc-njt':   {a:[39.9285,-75.1740,'1212 Mifflin St, Philadelphia'], b:[40.7506,-73.9971,'New York Penn Station'], intercity:'phl-nyc-njt', label:'Mifflin St → NYC Penn (SEPTA + NJT NEC)'},
+  'mifflin-nyc-amtrak':{a:[39.9285,-75.1740,'1212 Mifflin St, Philadelphia'], b:[40.7506,-73.9971,'New York Penn Station'], intercity:'phl-nyc-amtrak',label:'Mifflin St → NYC Penn (Amtrak NER)'}
 };
 /* snapshot Philly data before any city switching */
 const PHILLY_DATA={
@@ -557,7 +557,7 @@ const PHILLY_DATA={
   networkHint:'Type to search  -  pick a suggestion or press Enter. You can also click the map. Network: all SEPTA Regional Rail lines, MFL, BSL, PATCO, surface trolleys, and sample Indego docks.',
   presetGroups:[
     {label:'Philadelphia metro', keys:['mtairy-collingswood','pbreeze-haddonfield','fishtown-ucity','bella-fernrock','grad-frankford','epassyunk-flourtown']},
-    {label:'Intercity', keys:['mifflin-westpoint']}
+    {label:'Intercity / Philly → NYC', keys:['mifflin-westpoint','mifflin-nyc-njt','mifflin-nyc-amtrak']}
   ]
 };
 /* ============ BOSTON MBTA DATA ============ */
@@ -742,6 +742,32 @@ const WESTPOINT_TRIP={
     {label:'NJ Transit NEC',          cost:15.00},
     {label:'Metro-North Hudson Line', cost:17.00},
     {label:'Ferry',                   cost:5.00},
+  ]
+};
+const NJT_NEC_TRIP={
+  id:'phl-nyc-njt', title:'Philadelphia → New York Penn (budget)', sub:'bike + SEPTA Trenton Line + NJT NEC · fares estimated',
+  legs:[
+    {mode:'bike', from:{lat:39.9285,lng:-75.1740,name:'1212 Mifflin St'},      to:{lat:39.9566,lng:-75.1819,name:'30th Street Station'},  min:12, label:'Bike to 30th Street Station'},
+    {mode:'wait', min:15, label:'~15 min wait (Trenton Line, off-peak)'},
+    {mode:'ride', from:{lat:39.9566,lng:-75.1819,name:'30th Street Station'},  to:{lat:40.2170,lng:-74.7600,name:'Trenton'},               min:75, label:'SEPTA Trenton Line', agency:'SEPTA',       color:'#004D40', bikeRule:'off-peak only'},
+    {mode:'walk', from:{lat:40.2170,lng:-74.7600,name:'Trenton'},              to:{lat:40.2165,lng:-74.7618,name:'Trenton (NJT platform)'},min:5,  label:'Transfer to NJT platform (same building)'},
+    {mode:'wait', min:15, label:'~15 min wait (NJT NEC, off-peak)'},
+    {mode:'ride', from:{lat:40.2165,lng:-74.7618,name:'Trenton (NJT)'},        to:{lat:40.7506,lng:-73.9971,name:'New York Penn Station'}, min:65, label:'NJT Northeast Corridor', agency:'NJ Transit', color:'#003f87', bikeRule:'off-peak only'},
+  ],
+  fares:[
+    {label:'SEPTA Trenton Line (Zone 4)', cost:11.00},
+    {label:'NJ Transit NEC (Trenton→NYC)', cost:17.00},
+  ]
+};
+const AMTRAK_NER_TRIP={
+  id:'phl-nyc-amtrak', title:'Philadelphia → New York Penn (Amtrak)', sub:'bike + Amtrak Northeast Regional · fares vary by booking',
+  legs:[
+    {mode:'bike', from:{lat:39.9285,lng:-75.1740,name:'1212 Mifflin St'},      to:{lat:39.9566,lng:-75.1819,name:'30th Street Station'},  min:12, label:'Bike to 30th Street Station'},
+    {mode:'wait', min:15, label:'check amtrak.com for departure times'},
+    {mode:'ride', from:{lat:39.9566,lng:-75.1819,name:'30th Street Station'},  to:{lat:40.7506,lng:-73.9971,name:'New York Penn Station'}, min:80, label:'Amtrak Northeast Regional', agency:'Amtrak', color:'#215CB4', bikeRule:'reservation req · bikes on select trains · $20 fee'},
+  ],
+  fares:[
+    {label:'Amtrak NER (fare varies)', cost:50},
   ]
 };
 /* ============ NEW YORK CITY MTA DATA ============ */
@@ -1275,7 +1301,10 @@ $('citySelect').addEventListener('change',e=>loadCity(e.target.value));
 $('preset').addEventListener('change',e=>{
   const k=e.target.value;
   const p=PRESETS[k];if(!p)return;
-  intercityTrip=p.intercity==='westpoint'?WESTPOINT_TRIP:null;
+  intercityTrip=p.intercity==='westpoint'?WESTPOINT_TRIP
+    :p.intercity==='phl-nyc-njt'?NJT_NEC_TRIP
+    :p.intercity==='phl-nyc-amtrak'?AMTRAK_NER_TRIP
+    :null;
   setPoint('A',p.a[0],p.a[1],p.a[2]);setPoint('B',p.b[0],p.b[1],p.b[2]);nextIsA=true;
 });
 $('clear').addEventListener('click',()=>{
@@ -1711,12 +1740,15 @@ function renderTurnByTurn(legIdx,steps){
 const ORS_ICONS=['←','→','↙','↘','↖','↗','↑','↻','↻','↩','','↑','↖','↗'];
 function parseOrsSteps(steps){
   return steps
-    .filter(s=>s.distance>5&&s.type!==10&&s.type!==11)
-    .map(s=>({
-      icon:ORS_ICONS[s.type]??'↑',
-      street:(s.name&&s.name!=='-')?s.name:'unnamed road',
-      distM:s.distance,
-    }));
+    .filter(s=>s.distance>5&&s.type!==10&&s.type!==11&&s.name!=='TurnCost')
+    .map(s=>{
+      /* ORS returns '0', '-', '' for unnamed bike paths; fall back to instruction */
+      const nm=s.name;
+      const validName=nm&&nm!=='-'&&nm!=='0'&&nm.trim()!=='';
+      const street=validName?nm
+        :(s.instruction||'').replace(/^(Head\s+\w+(\s+on\s+)?|Turn\s+(left|right)\s+(onto\s+)?|Keep\s+(left|right)(\s+on\s+)?|Slight\s+(left|right)(\s+on\s+)?|Continue\s+on\s+|Go\s+straight(\s+on\s+)?|At\s+roundabout[^,]+,\s*take\s+exit\s+\d+\s*(onto\s+)?|Make\s+a\s+U-turn(\s+on\s+)?)/i,'').trim()||'continue';
+      return {icon:ORS_ICONS[s.type]??'↑',street,distM:s.distance};
+    });
 }
 
 /* BRouter fallback step parser */
