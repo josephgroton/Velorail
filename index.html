@@ -122,7 +122,8 @@
   .stn-ic{border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
   .dock-ic{border-radius:2px;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
   .cluster-ic{width:26px;height:26px;background:var(--ink);color:#fff;font-family:var(--body);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,.6);}
-  #leaveNow.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .mode-btn{background:none;border:1px solid var(--line);color:var(--dim);font-family:var(--body);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;cursor:pointer;line-height:1.4;white-space:nowrap;border-radius:0}
+  .mode-btn.active{background:var(--ink);color:var(--panel);border-color:var(--ink)}
   #pm-overlay{display:none;position:fixed;inset:0;background:rgba(24,20,15,.45);z-index:1090;}
   #pm-overlay.open{display:block;}
   #profile-modal{position:fixed;top:0;bottom:0;left:0;width:min(390px,100vw);background:var(--panel);border-right:2px solid var(--line);z-index:1100;display:flex;flex-direction:column;transform:translateX(-105%);transition:transform .22s cubic-bezier(.4,0,.2,1);box-shadow:4px 0 20px rgba(0,0,0,.18);}
@@ -219,11 +220,11 @@
           <div class="ep"><b>B</b><input type="text" id="bInput" placeholder="Destination" autocomplete="off" spellcheck="false" aria-label="Destination" aria-autocomplete="list" aria-controls="bSugg"></div>
           <ul class="suggestions" id="bSugg" role="listbox"></ul>
         </div>
-        <div class="ep" style="gap:8px;padding:5px 9px;flex-wrap:wrap">
-          <button id="leaveNow" style="background:none;border:1px solid var(--line);color:var(--dim);font-family:var(--body);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 6px;cursor:pointer;line-height:1.4;white-space:nowrap;border-radius:0">Leave now</button>
-          <span style="font-family:var(--display);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.11em;color:var(--faint);white-space:nowrap">Arrive by</span>
-          <input type="time" id="departInput" style="flex:1;background:transparent;border:none;outline:none;font:13px var(--body);color:var(--text);min-width:80px;padding:0" aria-label="Arrival time">
-          <button id="clearDepart" style="background:none;border:none;color:var(--faint);font-size:14px;padding:0 2px;cursor:pointer;line-height:1" title="Clear">×</button>
+        <div class="ep" style="gap:6px;padding:5px 9px;flex-wrap:nowrap;align-items:center">
+          <button id="leaveNow" class="mode-btn active">Leave now</button>
+          <button id="arriveByBtn" class="mode-btn">Arrive by</button>
+          <input type="time" id="departInput" style="display:none;flex:1;background:transparent;border:none;outline:none;font:13px var(--body);color:var(--text);min-width:80px;padding:0" aria-label="Arrival time">
+          <button id="clearDepart" style="display:none;background:none;border:none;color:var(--faint);font-size:14px;padding:0 2px;cursor:pointer;line-height:1" title="Clear time">×</button>
         </div>
       </div>
       <button id="routeBtn" onclick="compute()" style="display:block;width:100%;margin-top:6px;border:2px solid var(--ink);background:var(--ink);color:var(--panel);font-family:var(--display);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.12em;padding:7px 0;cursor:pointer;line-height:1;border-radius:0">Route</button>
@@ -1342,9 +1343,30 @@ $('aInput').addEventListener('blur',()=>setTimeout(()=>closeSugg('aSugg'),150));
 $('bInput').addEventListener('blur',()=>setTimeout(()=>closeSugg('bSugg'),150));
 for(const id of ['hasBike','carryOK','indegoPlan'])$(id).addEventListener('change',()=>{saveProfile();compute();});
 $('bikeMax').addEventListener('change',()=>{saveProfile();compute();});
-$('departInput').addEventListener('change',()=>{LEAVE_NOW=false;$('leaveNow').classList.remove('active');parseArriveMin();compute();});
-$('clearDepart').addEventListener('click',()=>{$('departInput').value='';ARRIVE_MIN=null;SCHED_START=null;LEAVE_NOW=false;$('leaveNow').classList.remove('active');compute();});
-$('leaveNow').addEventListener('click',()=>{LEAVE_NOW=!LEAVE_NOW;if(LEAVE_NOW){$('departInput').value='';ARRIVE_MIN=null;}$('leaveNow').classList.toggle('active',LEAVE_NOW);compute();});
+function activateLeaveNow(){
+  LEAVE_NOW=true;ARRIVE_MIN=null;SCHED_START=null;
+  $('leaveNow').classList.add('active');$('arriveByBtn').classList.remove('active');
+  $('departInput').style.display='none';$('departInput').value='';
+  $('clearDepart').style.display='none';
+  compute();
+}
+function activateArriveBy(){
+  LEAVE_NOW=false;
+  $('arriveByBtn').classList.add('active');$('leaveNow').classList.remove('active');
+  $('departInput').style.display='';
+  $('departInput').focus();
+}
+$('leaveNow').addEventListener('click',activateLeaveNow);
+$('arriveByBtn').addEventListener('click',activateArriveBy);
+$('departInput').addEventListener('change',()=>{
+  parseArriveMin();
+  if(ARRIVE_MIN!==null){$('clearDepart').style.display='';compute();}
+});
+$('clearDepart').addEventListener('click',()=>{
+  $('departInput').value='';ARRIVE_MIN=null;SCHED_START=null;
+  $('clearDepart').style.display='none';
+  compute();
+});
 /* ── GTFS integration ────────────────────────────────────────────────── */
 function patchGTFS(){
   const gtfs=window.SEPTA_GTFS;if(!gtfs)return;
@@ -1845,7 +1867,8 @@ function applyDark(dark){
 function toggleDark(){applyDark(!document.documentElement.classList.contains('dark'));}
 if(localStorage.getItem('vrDark')==='1')applyDark(true);
 loadProfile();
-parseArriveMin(); /* sync any browser-remembered time value into ARRIVE_MIN on page load */
+/* If browser remembered a time value, start in Arrive By mode; otherwise Leave Now */
+if($('departInput').value){parseArriveMin();activateArriveBy();}else{LEAVE_NOW=true;}
 </script>
 </body>
 </html>
