@@ -147,6 +147,13 @@
   .rd-addr-row b{font-family:var(--mono);font-size:10px;color:#fff;background:var(--ink);border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
   .rd-fares{margin-top:14px;border-top:1px solid var(--panel2);padding-top:10px;font-size:12px;color:var(--dim);line-height:1.7}
   .rd-fares b{color:var(--text)}
+  .tbt{padding:3px 0 6px 30px;margin-top:-2px}
+  .tbt-loading{font-size:11px;color:var(--faint);font-style:italic}
+  .tbt-steps{display:flex;flex-direction:column;gap:1px}
+  .tbt-step{display:grid;grid-template-columns:16px 1fr auto;align-items:baseline;gap:4px;font-size:11px;color:var(--dim);padding:2px 0;line-height:1.5}
+  .tbt-ic{color:var(--bike);font-size:12px;text-align:center}
+  .tbt-street{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tbt-dist{font-family:var(--mono);font-size:10px;color:var(--faint);white-space:nowrap}
   /* ---------- prototype banner ---------- */
   #proto-banner{background:var(--panel2);border-bottom:2px solid var(--line);padding:14px 18px;display:flex;align-items:flex-start;gap:12px}
   #proto-banner.hidden{display:none}
@@ -1113,7 +1120,8 @@ function tripCost(r,prof){
   return {cost,items,est};
 }
 /* ================= UI ================= */
-const map=L.map('map',{zoomControl:true}).setView([39.965,-75.12],11);
+const map=L.map('map',{zoomControl:false}).setView([39.965,-75.12],11);
+L.control.zoom({position:'topright'}).addTo(map);
 const TILE_LIGHT='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 const TILE_DARK='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 let tileLayer=L.tileLayer(TILE_LIGHT,{attribution:'&copy; OpenStreetMap &copy; CARTO',maxZoom:19}).addTo(map);
@@ -1420,7 +1428,8 @@ function showDetail(scId){
   }
   html+='<div class="strip">';
   html+=`<div class="endrow"><div class="rail"><div class="dot" style="border-color:var(--text)"></div></div><div class="body">${A?A.name:'Start'}</div></div>`;
-  for(const l of r.legs){
+  for(let li=0;li<r.legs.length;li++){
+    const l=r.legs[li];
     const c=l.line?LINES[l.line].color:(l.mode==='bike'?'var(--bike)':'var(--walk)');
     const dash=l.mode==='ride'?'solid':'dashed';
     let txt;
@@ -1436,6 +1445,7 @@ function showDetail(scId){
       txt=l.label;
     }
     html+=`<div class="leg"><div class="rail"><div class="seg ${dash}" style="--c:${c}"></div><div class="dot" style="border-color:${c}"></div></div><div class="body">${txt}</div><div class="min">${Math.max(1,Math.round(l.min))}m</div></div>`;
+    if(l.mode==='bike')html+=`<div class="tbt" id="tbt-${li}"><span class="tbt-loading">loading directions...</span></div>`;
   }
   html+=`<div class="endrow"><div class="rail"></div><div class="body">${B?B.name:'Arrive'}</div></div></div>`;
   if(tc.items.length)html+=`<div class="rd-fares"><b>Fares:</b> ${tc.items.join(' · ')}</div>`;
@@ -1654,19 +1664,50 @@ function selectIntercity(trip){
   if(allPts.length>1)map.fitBounds(allPts,{padding:[50,50]});
 }
 let selEpoch=0;
-function fetchOsrmRoute(profile,from,to,idx,epoch,opts){
-  const osrmUrl=profile==='foot'
-    ?`https://routing.openstreetmap.de/routed-foot/route/v1/foot/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`
-    :`https://router.project-osrm.org/route/v1/${profile}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
-  fetch(osrmUrl)
+function tbtIcon(m){
+  const t=m.type,mod=m.modifier||'';
+  if(t==='depart')return '↑';
+  if(t==='arrive')return '●';
+  if(t==='roundabout'||t==='rotary')return '↻';
+  if(mod.includes('sharp left'))return '↙';
+  if(mod.includes('slight left'))return '↖';
+  if(mod==='left')return '←';
+  if(mod.includes('sharp right'))return '↘';
+  if(mod.includes('slight right'))return '↗';
+  if(mod==='right')return '→';
+  if(mod==='uturn')return '↩';
+  return '↑';
+}
+function fmtDist(m){return m<800?`${Math.round(m)}m`:`${(m/1609.34).toFixed(1)} mi`;}
+function renderTurnByTurn(legIdx,steps){
+  const el=document.getElementById(`tbt-${legIdx}`);
+  if(!el||!steps.length){if(el)el.remove();return;}
+  let html='<div class="tbt-steps">';
+  for(const s of steps){
+    if(s.maneuver.type==='arrive')continue;
+    const name=s.name||(s.ref?s.ref:'unnamed road');
+    html+=`<div class="tbt-step"><span class="tbt-ic">${tbtIcon(s.maneuver)}</span><span class="tbt-street">${name}</span><span class="tbt-dist">${fmtDist(s.distance)}</span></div>`;
+  }
+  html+='</div>';
+  el.innerHTML=html;
+}
+function fetchOsrmRoute(profile,from,to,idx,epoch,opts,legIdx){
+  const base=profile==='foot'
+    ?`https://routing.openstreetmap.de/routed-foot/route/v1/foot/${from.lng},${from.lat};${to.lng},${to.lat}`
+    :`https://router.project-osrm.org/route/v1/${profile}/${from.lng},${from.lat};${to.lng},${to.lat}`;
+  const qs=profile==='bike'?'?overview=full&geometries=geojson&steps=true':'?overview=full&geometries=geojson';
+  fetch(base+qs)
     .then(r=>r.json())
     .then(data=>{
       if(selEpoch!==epoch||!data.routes?.length||!routeLayers[idx])return;
       const coords=data.routes[0].geometry.coordinates.map(([lng,lat])=>[lat,lng]);
       routeLayers[idx].remove();
       routeLayers[idx]=L.polyline(coords,opts).addTo(map);
+      if(profile==='bike'&&legIdx!=null){
+        renderTurnByTurn(legIdx,data.routes[0].legs[0]?.steps||[]);
+      }
     })
-    .catch(()=>{});
+    .catch(()=>{if(profile==='bike'&&legIdx!=null){const el=document.getElementById(`tbt-${legIdx}`);if(el)el.remove();}});
 }
 function select(scId){
   if(!scId)return;
@@ -1677,7 +1718,8 @@ function select(scId){
   for(const sc of SCENARIOS){
     const r=itins[sc.id];if(!r)continue;
     const isSel=sc.id===scId;
-    for(const l of r.legs){
+    for(let li=0;li<r.legs.length;li++){
+      const l=r.legs[li];
       if(!l.from||!l.to||l.mode==='wait')continue;
       if(!isSel&&l.mode!=='ride')continue; /* unselected: only draw transit lines, skip straight-line bike/walk */
       let pts=[[l.from.lat,l.from.lng],[l.to.lat,l.to.lng]];
@@ -1698,7 +1740,7 @@ function select(scId){
       routeLayers.push(L.polyline(pts,opts).addTo(map));
       /* replace straight-line bike/walk legs with OSRM-routed paths for selected scenario */
       if(isSel&&l.from.lat&&l.to.lat){
-        if(l.mode==='bike')fetchOsrmRoute('bike',l.from,l.to,routeLayers.length-1,epoch,opts);
+        if(l.mode==='bike')fetchOsrmRoute('bike',l.from,l.to,routeLayers.length-1,epoch,opts,li);
         if(l.mode==='walk')fetchOsrmRoute('foot',l.from,l.to,routeLayers.length-1,epoch,opts);
       }
     }
